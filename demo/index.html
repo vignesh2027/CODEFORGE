@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CODEFORGE — Multi-Agent Code Generation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── DESIGN TOKENS ──────────────────────────────────────────────── */
+    :root {
+      --bg:          #FAFAF6;
+      --bg-card:     #FFFFFF;
+      --bg-dim:      #F5F3EE;
+      --border:      #DDD7CE;
+      --border-dark: #B8AF9F;
+      --text:        #1C1814;
+      --text-muted:  #7A7167;
+      --text-light:  #A89F92;
+      --accent:      #C17830;
+      --accent-light:#FEF0DC;
+      --accent-dark: #9A5F20;
+      --green:       #3D8C5E;
+      --green-light: #E6F4EC;
+      --radius:      2px;
+      --shadow:      3px 3px 0 var(--border-dark);
+      --shadow-sm:   2px 2px 0 var(--border);
+    }
+
+    /* ── RESET ──────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      font-size: 15px;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, pre { font-family: 'JetBrains Mono', monospace; }
+
+    /* ── LAYOUT ─────────────────────────────────────────────────────── */
+    .container { max-width: 1160px; margin: 0 auto; padding: 0 32px; }
+    section { padding: 80px 0; }
+    section:nth-child(even) { background: var(--bg-dim); }
+
+    /* ── GRID BACKGROUND ─────────────────────────────────────────────── */
+    .grid-bg {
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 40px 40px;
+      background-color: var(--bg);
+    }
+
+    /* ── NAV ─────────────────────────────────────────────────────────── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--bg-card);
+      border-bottom: 1.5px solid var(--border);
+      padding: 0 32px;
+    }
+    .nav-inner {
+      max-width: 1160px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 56px;
+    }
+    .nav-logo {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 16px; font-weight: 600;
+      letter-spacing: 2px; color: var(--text);
+      border: 1.5px solid var(--border-dark);
+      padding: 4px 12px;
+      box-shadow: var(--shadow-sm);
+    }
+    .nav-links { display: flex; gap: 24px; }
+    .nav-links a { color: var(--text-muted); font-size: 14px; font-weight: 500; }
+    .nav-links a:hover { color: var(--accent); text-decoration: none; }
+    .nav-cta {
+      background: var(--text); color: var(--bg-card) !important;
+      padding: 6px 16px; border: 1.5px solid var(--text);
+      box-shadow: var(--shadow-sm); font-weight: 600;
+    }
+    .nav-cta:hover { background: var(--accent); border-color: var(--accent); }
+
+    /* ── HERO ────────────────────────────────────────────────────────── */
+    .hero {
+      padding: 100px 0 80px;
+      border-bottom: 1.5px solid var(--border);
+      position: relative; overflow: hidden;
+    }
+    .hero-tag {
+      display: inline-block;
+      font-size: 11px; font-weight: 600; letter-spacing: 2px;
+      color: var(--accent); text-transform: uppercase;
+      border: 1.5px solid var(--accent); padding: 3px 10px;
+      margin-bottom: 24px;
+    }
+    .hero-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: clamp(40px, 7vw, 80px);
+      font-weight: 700; line-height: 1.05;
+      letter-spacing: -1px;
+      margin-bottom: 20px;
+    }
+    .hero-title span { color: var(--accent); }
+    .hero-sub {
+      font-size: 18px; color: var(--text-muted);
+      max-width: 560px; margin-bottom: 40px; font-weight: 400;
+    }
+    .hero-badges {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 40px;
+    }
+    .badge {
+      font-size: 12px; font-weight: 500;
+      border: 1.5px solid var(--border-dark);
+      padding: 3px 10px; background: var(--bg-card);
+      color: var(--text-muted);
+    }
+    .badge.accent { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+    .hero-buttons { display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 22px; font-size: 14px; font-weight: 600;
+      border: 1.5px solid var(--text); cursor: pointer;
+      box-shadow: var(--shadow); transition: transform .1s, box-shadow .1s;
+    }
+    .btn:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--border-dark); text-decoration: none; }
+    .btn:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--border-dark); }
+    .btn-primary { background: var(--text); color: var(--bg-card); }
+    .btn-secondary { background: var(--bg-card); color: var(--text); }
+    .btn-accent { background: var(--accent); border-color: var(--accent-dark); color: white; }
+
+    /* ── STATS BAR ───────────────────────────────────────────────────── */
+    .stats-bar {
+      border-top: 1.5px solid var(--border);
+      border-bottom: 1.5px solid var(--border);
+      background: var(--bg-card);
+      padding: 0;
+    }
+    .stats-inner {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      max-width: 1160px; margin: 0 auto;
+    }
+    .stat {
+      padding: 28px 32px;
+      border-right: 1.5px solid var(--border);
+    }
+    .stat:last-child { border-right: none; }
+    .stat-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 32px; font-weight: 700; color: var(--accent);
+      line-height: 1;
+    }
+    .stat-label { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+
+    /* ── SECTION HEADER ──────────────────────────────────────────────── */
+    .section-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 2px;
+      color: var(--accent); text-transform: uppercase;
+      border-left: 3px solid var(--accent); padding-left: 10px;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: clamp(26px, 3.5vw, 38px); font-weight: 700;
+      line-height: 1.15; margin-bottom: 16px;
+    }
+    .section-sub { font-size: 16px; color: var(--text-muted); max-width: 560px; }
+
+    /* ── PIPELINE ─────────────────────────────────────────────────────── */
+    .pipeline-wrap {
+      overflow-x: auto; padding: 20px 0;
+    }
+    .pipeline {
+      display: flex; align-items: center; gap: 0;
+      min-width: 900px;
+    }
+    .pipeline-agent {
+      flex: 1; position: relative;
+    }
+    .agent-card {
+      border: 1.5px solid var(--border-dark);
+      background: var(--bg-card);
+      box-shadow: var(--shadow);
+      padding: 20px 16px;
+      transition: transform .15s, box-shadow .15s;
+      cursor: default;
+    }
+    .agent-card:hover { transform: translate(-2px,-2px); box-shadow: 5px 5px 0 var(--border-dark); }
+    .agent-icon { font-size: 24px; margin-bottom: 8px; }
+    .agent-name {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; font-weight: 600; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .agent-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .agent-desc { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+    .agent-tool {
+      margin-top: 8px; font-size: 11px; font-weight: 500;
+      color: var(--accent); border: 1px solid var(--accent-light);
+      background: var(--accent-light); padding: 2px 6px; display: inline-block;
+    }
+    .pipeline-arrow {
+      flex: 0 0 32px; text-align: center;
+      font-size: 20px; color: var(--border-dark);
+      position: relative;
+    }
+    .pipeline-arrow::after {
+      content: '';
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      width: 32px; height: 1.5px; background: var(--border-dark);
+    }
+
+    /* ── ARCHITECTURE ─────────────────────────────────────────────────── */
+    .arch-diagram {
+      border: 1.5px solid var(--border-dark);
+      background: var(--bg-card);
+      box-shadow: var(--shadow);
+      padding: 40px;
+      position: relative;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .arch-diagram pre {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text);
+      white-space: pre;
+      overflow-x: auto;
+    }
+    .arch-diagram .comment { color: var(--accent); }
+
+    /* ── FEATURES GRID ───────────────────────────────────────────────── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+    }
+    .feature-card {
+      border: 1.5px solid var(--border);
+      padding: 28px;
+      background: var(--bg-card);
+      margin: -1px 0 0 -1px;
+      transition: background .15s;
+    }
+    .feature-card:hover { background: var(--accent-light); }
+    .feature-icon {
+      font-size: 22px; margin-bottom: 12px;
+    }
+    .feature-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+    .feature-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+    /* ── TERMINAL ─────────────────────────────────────────────────────── */
+    .terminal {
+      background: #1C1814;
+      border: 1.5px solid var(--border-dark);
+      box-shadow: var(--shadow);
+    }
+    .terminal-bar {
+      background: #2A241E;
+      border-bottom: 1.5px solid var(--border-dark);
+      padding: 10px 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-r { background: #FF5F56; }
+    .dot-y { background: #FFBD2E; }
+    .dot-g { background: #27C93F; }
+    .terminal-title { font-size: 12px; color: #7A7167; margin-left: 8px; font-family: 'JetBrains Mono', monospace; }
+    .terminal-body { padding: 24px; font-size: 13px; line-height: 1.8; font-family: 'JetBrains Mono', monospace; }
+    .t-prompt { color: #C17830; }
+    .t-cmd { color: #E8E0D0; }
+    .t-orch  { color: #56CCF2; }
+    .t-plan  { color: #6FCF97; }
+    .t-coder { color: #F2C94C; }
+    .t-rev   { color: #BB6BD9; }
+    .t-exec  { color: #27AE60; }
+    .t-dim   { color: #5A5048; }
+    .t-code  { color: #F2994A; }
+    .t-out   { color: #A8E6CF; }
+
+    /* ── TECH STACK ──────────────────────────────────────────────────── */
+    .tech-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    }
+    .tech-card {
+      border: 1.5px solid var(--border);
+      padding: 28px 20px;
+      background: var(--bg-card);
+      margin: -1px 0 0 -1px;
+      text-align: center;
+    }
+    .tech-logo { font-size: 32px; margin-bottom: 10px; }
+    .tech-name { font-weight: 700; margin-bottom: 4px; font-size: 15px; }
+    .tech-role { font-size: 12px; color: var(--text-muted); }
+
+    /* ── PLATFORMS ───────────────────────────────────────────────────── */
+    .platform-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .platform-card {
+      border: 1.5px solid var(--border-dark);
+      background: var(--bg-card);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .platform-header {
+      padding: 16px 24px;
+      border-bottom: 1.5px solid var(--border);
+      background: var(--bg-dim);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .platform-logo { font-size: 20px; }
+    .platform-name { font-weight: 700; font-size: 15px; }
+    .platform-url { font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+    .platform-body { padding: 24px; }
+    .platform-feature {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 8px 0; border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .platform-feature:last-child { border-bottom: none; }
+    .pf-icon { flex: 0 0 18px; color: var(--green); font-size: 14px; margin-top: 1px; }
+    .platform-cta {
+      margin-top: 16px;
+      padding: 8px 16px;
+      border: 1.5px solid var(--border-dark);
+      background: var(--text); color: var(--bg-card);
+      font-size: 13px; font-weight: 600;
+      box-shadow: var(--shadow-sm); cursor: pointer;
+      display: inline-block;
+    }
+    .platform-cta:hover { background: var(--accent); text-decoration: none; }
+
+    /* ── QUICK START ─────────────────────────────────────────────────── */
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; }
+    .step {
+      border: 1.5px solid var(--border);
+      padding: 28px 20px;
+      background: var(--bg-card);
+      margin: -1px 0 0 -1px;
+      position: relative;
+    }
+    .step-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; font-weight: 600;
+      color: var(--accent); letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+    .step-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    .step-code {
+      background: var(--bg-dim); border: 1px solid var(--border);
+      padding: 6px 10px; font-size: 11px;
+      color: var(--text-muted); margin-top: 8px;
+    }
+
+    /* ── CODE BLOCK ──────────────────────────────────────────────────── */
+    .code-block {
+      background: #1C1814; color: #E8E0D0;
+      border: 1.5px solid var(--border-dark);
+      box-shadow: var(--shadow);
+      padding: 24px;
+      font-size: 13px; line-height: 1.7;
+      overflow-x: auto;
+    }
+    .c-kw  { color: #C17830; }
+    .c-fn  { color: #F2C94C; }
+    .c-str { color: #A8E6CF; }
+    .c-cm  { color: #5A5048; }
+    .c-cls { color: #56CCF2; }
+
+    /* ── FOOTER ──────────────────────────────────────────────────────── */
+    footer {
+      border-top: 1.5px solid var(--border);
+      background: var(--bg-card);
+      padding: 40px 32px;
+    }
+    .footer-inner {
+      max-width: 1160px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 16px;
+    }
+    .footer-logo {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px; font-weight: 600; letter-spacing: 2px;
+    }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a { font-size: 13px; color: var(--text-muted); }
+    .footer-copy { font-size: 12px; color: var(--text-light); }
+
+    /* ── ANIMATIONS ──────────────────────────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+    .fade-up { animation: fadeUp .5s ease both; }
+    .delay-1 { animation-delay: .1s; }
+    .delay-2 { animation-delay: .2s; }
+    .delay-3 { animation-delay: .3s; }
+    .delay-4 { animation-delay: .4s; }
+
+    .live-dot {
+      display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green); animation: pulse 2s infinite;
+      vertical-align: middle; margin-right: 5px;
+    }
+
+    /* ── RESPONSIVE ──────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .stats-inner { grid-template-columns: 1fr 1fr; }
+      .features-grid { grid-template-columns: 1fr; }
+      .tech-grid { grid-template-columns: 1fr 1fr; }
+      .steps { grid-template-columns: 1fr 1fr; }
+      .platform-grid { grid-template-columns: 1fr; }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ─────────────────────────────────────────────────────────────── -->
+<nav>
+  <div class="nav-inner">
+    <div class="nav-logo">CODEFORGE</div>
+    <div class="nav-links">
+      <a href="#pipeline">Pipeline</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#platforms">Platforms</a>
+      <a href="#demo">Demo</a>
+      <a href="#docs">Docs</a>
+      <a href="https://github.com/vignesh2027/CODEFORGE" target="_blank" class="nav-cta">GitHub ↗</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── HERO ─────────────────────────────────────────────────────────────── -->
+<section class="hero grid-bg">
+  <div class="container">
+    <div class="hero-tag">Open Source · MIT License</div>
+    <h1 class="hero-title fade-up">CODE<span>FORGE</span></h1>
+    <p class="hero-sub fade-up delay-1">
+      A 6-agent AI pipeline that transforms natural language into reviewed, tested,
+      and executed code — powered by LangGraph, Groq &amp; Tavily.
+    </p>
+    <div class="hero-badges fade-up delay-2">
+      <span class="badge accent">LangGraph</span>
+      <span class="badge">Groq Llama 3.3 70B</span>
+      <span class="badge">Tavily Search</span>
+      <span class="badge accent">LangSmith Traced</span>
+      <span class="badge">Flowise Visual</span>
+      <span class="badge">Python 3.10+</span>
+    </div>
+    <div class="hero-buttons fade-up delay-3">
+      <a href="https://github.com/vignesh2027/CODEFORGE" target="_blank" class="btn btn-primary">View on GitHub ↗</a>
+      <a href="#demo" class="btn btn-secondary">See Live Demo</a>
+      <a href="https://cloud.flowiseai.com/canvas/f7febaad-70a6-4dc1-bc2d-3cf2f2cecd5a" target="_blank" class="btn btn-accent">Open in Flowise ↗</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── STATS ─────────────────────────────────────────────────────────────── -->
+<div class="stats-bar">
+  <div class="stats-inner">
+    <div class="stat">
+      <div class="stat-num">6</div>
+      <div class="stat-label">Specialized AI Agents</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">95%</div>
+      <div class="stat-label">Test Pass Rate (19/20)</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">&lt;5s</div>
+      <div class="stat-label">Avg. Code Generation</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">7+</div>
+      <div class="stat-label">Languages Supported</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PIPELINE ───────────────────────────────────────────────────────────── -->
+<section id="pipeline">
+  <div class="container">
+    <div class="section-label">Agent Pipeline</div>
+    <h2 class="section-title">Six agents. One goal.</h2>
+    <p class="section-sub">Each agent has a single responsibility. LangGraph orchestrates the state machine.</p>
+    <br /><br />
+    <div class="pipeline-wrap">
+      <div class="pipeline">
+
+        <div class="pipeline-agent">
+          <div class="agent-card">
+            <div class="agent-icon">🎯</div>
+            <div class="agent-name">01 · Orchestrator</div>
+            <div class="agent-title">Task Analyzer</div>
+            <div class="agent-desc">Parses the request, detects language, extracts key requirements</div>
+          </div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+
+        <div class="pipeline-agent">
+          <div class="agent-card">
+            <div class="agent-icon">📋</div>
+            <div class="agent-name">02 · Planner</div>
+            <div class="agent-title">Architect</div>
+            <div class="agent-desc">Creates a numbered step-by-step implementation plan</div>
+          </div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+
+        <div class="pipeline-agent">
+          <div class="agent-card">
+            <div class="agent-icon">💻</div>
+            <div class="agent-name">03 · Coder</div>
+            <div class="agent-title">Engineer</div>
+            <div class="agent-desc">Writes complete, production-quality code</div>
+            <span class="agent-tool">+ Tavily Search</span>
+          </div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+
+        <div class="pipeline-agent">
+          <div class="agent-card">
+            <div class="agent-icon">🔍</div>
+            <div class="agent-name">04 · Reviewer</div>
+            <div class="agent-title">Quality Gate</div>
+            <div class="agent-desc">Scores 1–10, approves or rejects with feedback</div>
+          </div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+
+        <div class="pipeline-agent">
+          <div class="agent-card">
+            <div class="agent-icon">⚡</div>
+            <div class="agent-name">05 · Executor</div>
+            <div class="agent-title">Runner</div>
+            <div class="agent-desc">Runs code in an isolated subprocess, captures output</div>
+            <span class="agent-tool">+ Subprocess</span>
+          </div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+
+        <div class="pipeline-agent">
+          <div class="agent-card">
+            <div class="agent-icon">🐛</div>
+            <div class="agent-name">06 · Debugger</div>
+            <div class="agent-title">Fixer</div>
+            <div class="agent-desc">Diagnoses runtime errors, rewrites the broken code</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── ARCHITECTURE ───────────────────────────────────────────────────────── -->
+<section id="architecture">
+  <div class="container">
+    <div class="section-label">Architecture</div>
+    <h2 class="section-title">LangGraph State Machine</h2>
+    <p class="section-sub">Conditional edges route between agents based on review score and execution result.</p>
+    <br /><br />
+
+    <div class="arch-diagram">
+      <pre>
+<span class="comment">┌─ CODEFORGE LangGraph Workflow ─────────────────────────────────────────────┐</span>
+│                                                                              │
+│   User Input                                                                 │
+│       │                                                                      │
+│       ▼                                                                      │
+│  ┌────────────┐     ┌────────────┐     ┌─────────────────────────────────┐  │
+│  │ORCHESTRATOR│────▶│  PLANNER   │────▶│   CODER  (+Tavily web search)   │  │
+│  │ lang detect│     │ step plan  │     │  writes complete runnable code  │  │
+│  └────────────┘     └────────────┘     └─────────────────┬───────────────┘  │
+│                                                           │                  │
+│                                                           ▼                  │
+│                                                   ┌──────────────┐          │
+│                                         ◀─reject──│   REVIEWER   │──approve─▶│
+│                                         │         │  score 1-10  │          │
+│                                         │         └──────────────┘          │
+│                                         │ (max 3 iterations)                │
+│                                         ▼                    ▼              │
+│                                      CODER             ┌──────────┐         │
+│                                     (revise)           │ EXECUTOR  │         │
+│                                                        │ subprocess│         │
+│                                                        └─────┬────┘         │
+│                                                              │               │
+│                                          ┌──────────────────┤               │
+│                                          │                  │               │
+│                                       success             fail              │
+│                                          │                  │               │
+│                                          ▼                  ▼               │
+│                                        END            ┌──────────┐          │
+│                                                       │ DEBUGGER  │          │
+│                                                       │ root-cause│          │
+│                                                       └─────┬────┘          │
+│                                                             │                │
+│                                                             └──▶ CODER       │
+│                                                                 (max 3x)    │
+<span class="comment">└─────────────────────────────────────────────────────────────────────────────┘</span>
+
+  State fields:  task · plan · language · code · review_feedback · review_approved
+                 execution_output · execution_success · debug_attempts · agent_log
+      </pre>
+    </div>
+  </div>
+</section>
+
+<!-- ── PLATFORMS ──────────────────────────────────────────────────────────── -->
+<section id="platforms">
+  <div class="container">
+    <div class="section-label">Observability &amp; Visualization</div>
+    <h2 class="section-title">See every step. On two platforms.</h2>
+    <p class="section-sub">Every agent call, LLM token, tool use, and latency — fully visible.</p>
+    <br /><br />
+
+    <div class="platform-grid">
+
+      <div class="platform-card">
+        <div class="platform-header">
+          <div class="platform-logo">🔬</div>
+          <div>
+            <div class="platform-name">LangSmith</div>
+            <div class="platform-url">smith.langchain.com → Project: CODEFORGE</div>
+          </div>
+        </div>
+        <div class="platform-body">
+          <div class="platform-feature">
+            <div class="pf-icon">✓</div>
+            <div>Full LangGraph execution trace — every node, edge, and routing decision</div>
+          </div>
+          <div class="platform-feature">
+            <div class="pf-icon">✓</div>
+            <div>Token counts and latency per agent (Groq inference metrics)</div>
+          </div>
+          <div class="platform-feature">
+            <div class="pf-icon">✓</div>
+            <div>Exact prompts sent and responses received — fully inspectable</div>
+          </div>
+          <div class="platform-feature">
+            <div class="pf-icon">✓</div>
+            <div>Tavily search queries and results logged as tool calls</div>
+          </div>
+          <div class="platform-feature">
+            <div class="pf-icon">✓</div>
+            <div><span class="live-dot"></span>Live — traces appear within seconds of each run</div>
+          </div>
+          <a href="https://smith.langchain.com" target="_blank" class="platform-cta">Open LangSmith ↗</a>
+        </div>
+      </div>
+
+      <div class="platform-card">
+        <div class="platform-header">
+          <div class="platform-logo">🌊</div>
+          <div>
+            <div class="platform-name">Flowise</div>
+            <div class="platform-url">cloud.flowiseai.com → CODEFORGE Pipeline</div>
+          </div>
+        </div>
+        <div class="platform-body">
+          <div class="platform-feature">
+            <div class="pf-icon">✓</div>
+            <div>Visual drag-and-drop canvas showing all 8 connected nodes</div>
+          </div>
+          <div class="platform-feature">
+            <div class="pf-icon">✓</div>
+            <div>Groq ChatModel + Tavily Tool wired to each LLM agent</div>
+          </div>
+          <div class="platform-feature">
+            <div class="pf-icon">✓</div>
+            <div>Condition node routes: APPROVED → Executor, REJECTED → Debugger</div>
+          </div>
+          <div class="platform-feature">
+            <div class="pf-icon">✓</div>
+            <div>Deployed REST API endpoint for external integrations</div>
+          </div>
+          <div class="platform-feature">
+            <div class="pf-icon">✓</div>
+            <div>Share the canvas as a visual portfolio piece</div>
+          </div>
+          <a href="https://cloud.flowiseai.com/canvas/f7febaad-70a6-4dc1-bc2d-3cf2f2cecd5a" target="_blank" class="platform-cta">Open Flowise Canvas ↗</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── LIVE DEMO ──────────────────────────────────────────────────────────── -->
+<section id="demo">
+  <div class="container">
+    <div class="section-label">Live Terminal Demo</div>
+    <h2 class="section-title">Watch it run.</h2>
+    <p class="section-sub">Real output from a CODEFORGE run — every agent, every step.</p>
+    <br /><br />
+
+    <div class="terminal">
+      <div class="terminal-bar">
+        <span class="dot dot-r"></span>
+        <span class="dot dot-y"></span>
+        <span class="dot dot-g"></span>
+        <span class="terminal-title">~ zsh — CODEFORGE</span>
+      </div>
+      <div class="terminal-body">
+<span class="t-prompt">vignesh@mac CODEFORGE %</span> <span class="t-cmd">python3 main.py "Write a two-sum solver using a hash map"</span>
+
+<span class="t-dim">  ██████╗ ██████╗ ██████╗ ███████╗███████╗ ██████╗ ██████╗  ██████╗ ███████╗</span>
+<span class="t-dim"> ██╔════╝██╔═══██╗██╔══██╗██╔════╝██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝</span>
+
+<span class="t-orch">  [ORCHESTRATOR]  Task analyzed → Language: PYTHON</span>
+<span class="t-plan">  [PLANNER]       Implementation plan created (7 steps)</span>
+<span class="t-coder">  [CODER]         Code written — iteration 1</span>
+<span class="t-rev">  [REVIEWER]      APPROVED ✓ — Score: 9/10 | O(n) time, clean type hints</span>
+<span class="t-exec">  [EXECUTOR]      Executed successfully ✓</span>
+
+<span class="t-dim">──────────────────────────────────────────────</span>
+
+<span class="t-code">  def two_sum(nums: list[int], target: int) -> tuple[int, int] | None:</span>
+<span class="t-code">      seen: dict[int, int] = {}</span>
+<span class="t-code">      for i, num in enumerate(nums):</span>
+<span class="t-code">          complement = target - num</span>
+<span class="t-code">          if complement in seen:</span>
+<span class="t-code">              return (seen[complement], i)</span>
+<span class="t-code">          seen[num] = i</span>
+<span class="t-code">      return None</span>
+
+<span class="t-out">  Found pair at indices: (0, 3) → values (2, 7) = 9</span>
+
+<span class="t-dim">  Language: PYTHON | Iterations: 1 | Debug: 0 | Time: 4.1s ✓</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CODE EXAMPLE ───────────────────────────────────────────────────────── -->
+<section>
+  <div class="container">
+    <div class="section-label">Under the Hood</div>
+    <h2 class="section-title">The LangGraph workflow.</h2>
+    <p class="section-sub">Six nodes. Conditional edges. Clean state machine.</p>
+    <br /><br />
+    <div class="code-block">
+<span class="c-cm"># graph/workflow.py — the complete routing logic</span>
+
+<span class="c-kw">from</span> langgraph.graph <span class="c-kw">import</span> StateGraph, END, START
+
+<span class="c-kw">def</span> <span class="c-fn">_route_after_review</span>(state) -> str:
+    <span class="c-kw">if</span> state[<span class="c-str">"review_approved"</span>]: <span class="c-kw">return</span> <span class="c-str">"executor"</span>
+    <span class="c-kw">if</span> state[<span class="c-str">"code_iteration"</span>] >= MAX_CODE_ITERATIONS: <span class="c-kw">return</span> <span class="c-str">"executor"</span>
+    <span class="c-kw">return</span> <span class="c-str">"coder"</span>          <span class="c-cm"># loop back for revision</span>
+
+<span class="c-kw">def</span> <span class="c-fn">_route_after_execution</span>(state) -> str:
+    <span class="c-kw">if</span> state[<span class="c-str">"execution_success"</span>]: <span class="c-kw">return</span> END
+    <span class="c-kw">if</span> state[<span class="c-str">"debug_attempts"</span>] >= MAX_DEBUG_ATTEMPTS: <span class="c-kw">return</span> END
+    <span class="c-kw">return</span> <span class="c-str">"debugger"</span>       <span class="c-cm"># auto-fix and retry</span>
+
+graph = <span class="c-cls">StateGraph</span>(AgentState)
+graph.add_node(<span class="c-str">"orchestrator"</span>, orchestrate)  <span class="c-cm"># 🎯</span>
+graph.add_node(<span class="c-str">"planner"</span>,      plan)          <span class="c-cm"># 📋</span>
+graph.add_node(<span class="c-str">"coder"</span>,        code)          <span class="c-cm"># 💻 + Tavily</span>
+graph.add_node(<span class="c-str">"reviewer"</span>,     review)        <span class="c-cm"># 🔍</span>
+graph.add_node(<span class="c-str">"executor"</span>,     execute)       <span class="c-cm"># ⚡ subprocess</span>
+graph.add_node(<span class="c-str">"debugger"</span>,     debug)         <span class="c-cm"># 🐛</span>
+
+graph.add_edge(START, <span class="c-str">"orchestrator"</span>)
+graph.add_edge(<span class="c-str">"orchestrator"</span>, <span class="c-str">"planner"</span>)
+graph.add_edge(<span class="c-str">"planner"</span>,      <span class="c-str">"coder"</span>)
+graph.add_edge(<span class="c-str">"coder"</span>,        <span class="c-str">"reviewer"</span>)
+graph.add_conditional_edges(<span class="c-str">"reviewer"</span>,  _route_after_review)
+graph.add_conditional_edges(<span class="c-str">"executor"</span>,  _route_after_execution)
+graph.add_edge(<span class="c-str">"debugger"</span>, <span class="c-str">"coder"</span>)   <span class="c-cm"># debug → recode → review → execute</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── FEATURES ───────────────────────────────────────────────────────────── -->
+<section>
+  <div class="container">
+    <div class="section-label">Features</div>
+    <h2 class="section-title">Everything you need.</h2>
+    <br /><br />
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🧠</div>
+        <div class="feature-title">6 Specialized Agents</div>
+        <div class="feature-desc">Each agent has one job. Separation of concerns built into the architecture.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌐</div>
+        <div class="feature-title">Tavily Web Search</div>
+        <div class="feature-desc">Coder searches documentation in real-time before writing. Always current API usage.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔁</div>
+        <div class="feature-title">Auto Review Loop</div>
+        <div class="feature-desc">Reviewer scores 1–10. Code loops back for revision until quality ≥ 7. Max 3 passes.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🐛</div>
+        <div class="feature-title">Auto Debug Loop</div>
+        <div class="feature-desc">Runtime errors trigger the Debugger automatically. Root-cause analysis + fix applied.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔬</div>
+        <div class="feature-title">LangSmith Traced</div>
+        <div class="feature-desc">Every LLM call, token count, latency, and tool use logged to smith.langchain.com.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌊</div>
+        <div class="feature-title">Flowise Visual</div>
+        <div class="feature-desc">Full 8-node pipeline visualized on Flowise Cloud canvas. Shareable for demos.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🛡️</div>
+        <div class="feature-title">Isolated Execution</div>
+        <div class="feature-desc">Code runs in a subprocess with timeout enforcement. Main process stays safe.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">Groq Inference</div>
+        <div class="feature-desc">Llama 3.3 70B on Groq hardware. Sub-second LLM responses. 3x retry on rate limits.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌍</div>
+        <div class="feature-title">7+ Languages</div>
+        <div class="feature-desc">Python (with execution), JavaScript, TypeScript, Java, C++, Rust, Go.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── TECH STACK ─────────────────────────────────────────────────────────── -->
+<section id="docs">
+  <div class="container">
+    <div class="section-label">Tech Stack</div>
+    <h2 class="section-title">Best tools in the ecosystem.</h2>
+    <br /><br />
+    <div class="tech-grid">
+      <div class="tech-card">
+        <div class="tech-logo">🕸️</div>
+        <div class="tech-name">LangGraph</div>
+        <div class="tech-role">Multi-agent orchestration</div>
+      </div>
+      <div class="tech-card">
+        <div class="tech-logo">⚡</div>
+        <div class="tech-name">Groq</div>
+        <div class="tech-role">Llama 3.3 70B inference</div>
+      </div>
+      <div class="tech-card">
+        <div class="tech-logo">🌐</div>
+        <div class="tech-name">Tavily</div>
+        <div class="tech-role">Real-time web search</div>
+      </div>
+      <div class="tech-card">
+        <div class="tech-logo">🔬</div>
+        <div class="tech-name">LangSmith</div>
+        <div class="tech-role">Tracing &amp; observability</div>
+      </div>
+    </div>
+    <br /><br />
+
+    <!-- Quick Start -->
+    <div class="section-label">Quick Start</div>
+    <h2 class="section-title">Up in 4 steps.</h2>
+    <br />
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">STEP 01</div>
+        <div class="step-title">Clone the repo</div>
+        <div class="step-code">git clone github.com/vignesh2027/CODEFORGE</div>
+      </div>
+      <div class="step">
+        <div class="step-num">STEP 02</div>
+        <div class="step-title">Install dependencies</div>
+        <div class="step-code">pip install -r requirements.txt</div>
+      </div>
+      <div class="step">
+        <div class="step-num">STEP 03</div>
+        <div class="step-title">Configure .env</div>
+        <div class="step-code">cp .env.example .env<br/># Add Groq + Tavily keys</div>
+      </div>
+      <div class="step">
+        <div class="step-num">STEP 04</div>
+        <div class="step-title">Run CODEFORGE</div>
+        <div class="step-code">python3 main.py "your task"</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ─────────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">CODEFORGE</div>
+    <div class="footer-links">
+      <a href="https://github.com/vignesh2027/CODEFORGE" target="_blank">GitHub</a>
+      <a href="https://smith.langchain.com" target="_blank">LangSmith</a>
+      <a href="https://cloud.flowiseai.com/canvas/f7febaad-70a6-4dc1-bc2d-3cf2f2cecd5a" target="_blank">Flowise</a>
+      <a href="https://groq.com" target="_blank">Groq</a>
+    </div>
+    <div class="footer-copy">MIT © 2024 Vignesh S · Built with LangGraph + Groq</div>
+  </div>
+</footer>
+
+<script>
+  // Animate elements on scroll
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.style.opacity = '1';
+        e.target.style.transform = 'translateY(0)';
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.feature-card, .tech-card, .step, .platform-card').forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(16px)';
+    el.style.transition = 'opacity .4s ease, transform .4s ease';
+    observer.observe(el);
+  });
+
+  // Terminal typing animation
+  const lines = document.querySelectorAll('.terminal-body > *');
+  lines.forEach((line, i) => {
+    line.style.opacity = '0';
+    setTimeout(() => {
+      line.style.transition = 'opacity .3s ease';
+      line.style.opacity = '1';
+    }, 800 + i * 180);
+  });
+</script>
+
+</body>
+</html>
