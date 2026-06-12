@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CODEFORGE — Multi-Agent Code Generation System</title>
+  <meta name="description" content="A 6-agent LangGraph system that plans, writes, reviews, executes and debugs code autonomously. Powered by Groq Llama 3.3 70B." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── TOKENS ─────────────────────────────────────────────────────── */
+    :root {
+      --bg:         #FAFAF6;
+      --bg2:        #F3F0E9;
+      --bg3:        #EDE9DF;
+      --card:       #FFFFFF;
+      --border:     #D9D3C7;
+      --border2:    #B8AF9F;
+      --text:       #1A1714;
+      --muted:      #6B6358;
+      --light:      #9E9589;
+      --accent:     #C17830;
+      --accent2:    #E8912A;
+      --accentbg:   #FEF3E2;
+      --green:      #2E7D52;
+      --greenbg:    #E8F5EE;
+      --blue:       #1D5FA8;
+      --bluebg:     #E8F0FA;
+      --purple:     #6B3FA0;
+      --purplebg:   #F0EAF8;
+      --mono:       'JetBrains Mono', monospace;
+      --sans:       'Inter', system-ui, sans-serif;
+    }
+
+    /* ── RESET ──────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--sans); background: var(--bg); color: var(--text); line-height: 1.65; font-size: 15px; overflow-x: hidden; }
+
+    /* ── GRID PAPER BACKGROUND ───────────────────────────────────────── */
+    .grid-paper {
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 40px 40px;
+      background-position: -1px -1px;
+    }
+
+    /* ── LAYOUT ─────────────────────────────────────────────────────── */
+    .container { max-width: 1140px; margin: 0 auto; padding: 0 28px; }
+    section { padding: 96px 0; }
+
+    /* ── NAV ─────────────────────────────────────────────────────────── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(250,250,246,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1.5px solid var(--border);
+    }
+    .nav-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 28px; max-width: 1140px; margin: 0 auto;
+    }
+    .logo {
+      display: flex; align-items: center; gap: 10px;
+      font-family: var(--mono); font-weight: 600; font-size: 17px; color: var(--text);
+      text-decoration: none;
+    }
+    .logo-icon {
+      width: 32px; height: 32px; border: 2px solid var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; color: var(--accent); font-weight: 700;
+    }
+    .nav-links { display: flex; align-items: center; gap: 28px; }
+    .nav-links a { font-size: 13px; font-weight: 500; color: var(--muted); text-decoration: none; transition: color .15s; }
+    .nav-links a:hover { color: var(--accent); }
+    .nav-cta {
+      background: var(--accent); color: #fff;
+      padding: 7px 18px; font-size: 13px; font-weight: 600;
+      border: none; text-decoration: none; transition: background .15s;
+    }
+    .nav-cta:hover { background: var(--accent2); text-decoration: none; color: #fff; }
+
+    /* ── HERO ────────────────────────────────────────────────────────── */
+    .hero {
+      min-height: 92vh; display: flex; align-items: center;
+      position: relative; overflow: hidden;
+    }
+    .hero-content { position: relative; z-index: 2; max-width: 640px; }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      border: 1.5px solid var(--border2); background: var(--card);
+      padding: 6px 14px; font-size: 12px; font-weight: 600;
+      color: var(--muted); letter-spacing: .06em; text-transform: uppercase;
+      margin-bottom: 28px;
+    }
+    .hero-badge span { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    h1 {
+      font-size: clamp(40px, 6vw, 72px);
+      font-weight: 800; line-height: 1.08; letter-spacing: -.03em;
+      color: var(--text); margin-bottom: 24px;
+    }
+    h1 em { font-style: normal; color: var(--accent); }
+    .hero-sub {
+      font-size: 18px; color: var(--muted); line-height: 1.7;
+      max-width: 520px; margin-bottom: 40px; font-weight: 400;
+    }
+    .hero-actions { display: flex; gap: 14px; flex-wrap: wrap; }
+    .btn-primary {
+      background: var(--text); color: #fff;
+      padding: 13px 28px; font-size: 14px; font-weight: 600;
+      text-decoration: none; border: 2px solid var(--text);
+      transition: all .15s; display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-primary:hover { background: var(--accent); border-color: var(--accent); text-decoration: none; color: #fff; }
+    .btn-outline {
+      border: 2px solid var(--border2); color: var(--text);
+      padding: 13px 28px; font-size: 14px; font-weight: 600;
+      text-decoration: none; transition: all .15s;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-outline:hover { border-color: var(--text); text-decoration: none; color: var(--text); }
+
+    /* Hero wireframe diagram */
+    .hero-diagram {
+      position: absolute; right: -40px; top: 50%;
+      transform: translateY(-50%);
+      width: 520px; opacity: 0.9;
+    }
+
+    /* ── STATS STRIP ─────────────────────────────────────────────────── */
+    .stats-strip {
+      background: var(--text); color: #fff;
+      padding: 0;
+    }
+    .stats-inner {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      border-left: 1px solid rgba(255,255,255,.1);
+    }
+    .stat-cell {
+      padding: 32px 36px;
+      border-right: 1px solid rgba(255,255,255,.1);
+      border-bottom: none;
+    }
+    .stat-num { font-size: 38px; font-weight: 800; color: var(--accent2); font-family: var(--mono); }
+    .stat-label { font-size: 12px; color: rgba(255,255,255,.5); margin-top: 4px; letter-spacing: .06em; text-transform: uppercase; }
+
+    /* ── SECTION TITLES ──────────────────────────────────────────────── */
+    .section-eyebrow {
+      font-size: 11px; font-weight: 700; letter-spacing: .14em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 12px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .section-eyebrow::before { content: ''; display: block; width: 24px; height: 1.5px; background: var(--accent); }
+    h2 { font-size: clamp(28px, 4vw, 42px); font-weight: 800; letter-spacing: -.025em; line-height: 1.15; margin-bottom: 16px; }
+    .section-desc { font-size: 17px; color: var(--muted); max-width: 540px; line-height: 1.7; }
+
+    /* ── PIPELINE SECTION ────────────────────────────────────────────── */
+    .pipeline-grid {
+      display: grid; grid-template-columns: 1fr;
+      gap: 0; margin-top: 64px;
+      border: 1.5px solid var(--border2);
+    }
+    .pipe-row {
+      display: grid; grid-template-columns: 200px 1fr;
+      border-bottom: 1.5px solid var(--border);
+      transition: background .15s;
+    }
+    .pipe-row:last-child { border-bottom: none; }
+    .pipe-row:hover { background: var(--accentbg); }
+    .pipe-num {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 28px 20px;
+      border-right: 1.5px solid var(--border);
+      background: var(--bg2);
+    }
+    .pipe-index {
+      font-family: var(--mono); font-size: 11px; font-weight: 600;
+      color: var(--light); letter-spacing: .1em; margin-bottom: 8px;
+    }
+    .pipe-agent-name {
+      font-family: var(--mono); font-size: 13px; font-weight: 700;
+      color: var(--accent); text-align: center; line-height: 1.3;
+    }
+    .pipe-body { padding: 28px 36px; }
+    .pipe-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .pipe-desc { font-size: 14px; color: var(--muted); line-height: 1.6; }
+    .pipe-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .tag {
+      font-size: 11px; font-weight: 600; padding: 3px 10px;
+      border: 1.5px solid var(--border2); color: var(--muted);
+      font-family: var(--mono); letter-spacing: .04em;
+    }
+    .tag.green { border-color: var(--green); color: var(--green); background: var(--greenbg); }
+    .tag.blue  { border-color: var(--blue);  color: var(--blue);  background: var(--bluebg); }
+    .tag.accent{ border-color: var(--accent); color: var(--accent); background: var(--accentbg); }
+
+    /* ── ARCHITECTURE WIREFRAME ───────────────────────────────────────── */
+    .arch-wrap {
+      margin-top: 64px;
+      border: 1.5px solid var(--border2);
+      background: var(--card);
+      overflow: hidden;
+    }
+    .arch-header {
+      padding: 16px 24px;
+      border-bottom: 1.5px solid var(--border);
+      background: var(--bg2);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .arch-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .arch-title { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-left: 4px; }
+    .arch-canvas { padding: 40px 32px; overflow-x: auto; }
+
+    /* ── SVG FLOW DIAGRAM ────────────────────────────────────────────── */
+    .flow-svg { width: 100%; max-width: 960px; display: block; margin: 0 auto; }
+
+    /* ── PLATFORMS ───────────────────────────────────────────────────── */
+    .platforms-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 0; margin-top: 64px;
+      border: 1.5px solid var(--border2);
+    }
+    .platform-card {
+      padding: 40px 36px;
+      border-right: 1.5px solid var(--border);
+      transition: background .15s;
+    }
+    .platform-card:last-child { border-right: none; }
+    .platform-card:hover { background: var(--bg2); }
+    .platform-icon {
+      width: 48px; height: 48px; border: 2px solid var(--border2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; margin-bottom: 20px;
+      background: var(--card);
+    }
+    .platform-name { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .platform-desc { font-size: 14px; color: var(--muted); line-height: 1.65; margin-bottom: 20px; }
+    .platform-link {
+      font-size: 13px; font-weight: 600; color: var(--accent);
+      text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .platform-link:hover { text-decoration: underline; }
+
+    /* ── TERMINAL DEMO ───────────────────────────────────────────────── */
+    .terminal {
+      margin-top: 64px;
+      border: 1.5px solid var(--border2);
+      background: #1A1714; overflow: hidden;
+    }
+    .terminal-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 20px; background: #252018;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .t-dot { width: 11px; height: 11px; border-radius: 50%; }
+    .t-title { font-family: var(--mono); font-size: 11px; color: rgba(255,255,255,.35); margin-left: 8px; }
+    .terminal-body { padding: 28px 32px; font-family: var(--mono); font-size: 13px; line-height: 1.9; }
+    .t-prompt { color: #C17830; }
+    .t-cmd    { color: #E8DFD0; }
+    .t-out    { color: rgba(255,255,255,.45); }
+    .t-agent  { color: #4ADE80; font-weight: 600; }
+    .t-green  { color: #4ADE80; }
+    .t-yellow { color: #FCD34D; }
+    .t-blue   { color: #60A5FA; }
+    .t-cursor { display: inline-block; width: 8px; height: 14px; background: #C17830; animation: blink 1s infinite; vertical-align: middle; }
+    @keyframes blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+
+    /* ── QUICK START ─────────────────────────────────────────────────── */
+    .steps-grid {
+      display: grid; grid-template-columns: repeat(2,1fr);
+      gap: 0; margin-top: 64px;
+      border: 1.5px solid var(--border2);
+    }
+    .step-card {
+      padding: 40px 36px;
+      border-right: 1.5px solid var(--border);
+      border-bottom: 1.5px solid var(--border);
+    }
+    .step-card:nth-child(2n) { border-right: none; }
+    .step-card:nth-child(3), .step-card:nth-child(4) { border-bottom: none; }
+    .step-num {
+      font-family: var(--mono); font-size: 11px; font-weight: 700;
+      color: var(--accent); letter-spacing: .1em; text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .step-title { font-size: 17px; font-weight: 700; margin-bottom: 10px; }
+    .step-desc { font-size: 14px; color: var(--muted); line-height: 1.65; margin-bottom: 16px; }
+    .code-block {
+      background: var(--text); color: #E8DFD0;
+      padding: 14px 18px; font-family: var(--mono);
+      font-size: 12px; line-height: 1.7;
+      border: none; overflow-x: auto;
+    }
+    .code-block .cmt { color: rgba(232,223,208,.35); }
+    .code-block .kw  { color: var(--accent2); }
+    .code-block .str { color: #4ADE80; }
+
+    /* ── TECH STACK ──────────────────────────────────────────────────── */
+    .stack-grid {
+      display: grid; grid-template-columns: repeat(4,1fr);
+      gap: 0; margin-top: 64px;
+      border: 1.5px solid var(--border2);
+    }
+    .stack-cell {
+      padding: 28px 24px;
+      border-right: 1.5px solid var(--border);
+      border-bottom: 1.5px solid var(--border);
+      text-align: center; transition: background .15s;
+    }
+    .stack-cell:hover { background: var(--accentbg); }
+    .stack-cell:nth-child(4n) { border-right: none; }
+    .stack-cell:nth-child(n+5) { border-bottom: none; }
+    .stack-icon { font-size: 28px; margin-bottom: 10px; }
+    .stack-name { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+    .stack-role { font-size: 11px; color: var(--light); }
+
+    /* ── FEATURES ────────────────────────────────────────────────────── */
+    .features-grid {
+      display: grid; grid-template-columns: repeat(3,1fr);
+      gap: 0; margin-top: 64px;
+      border: 1.5px solid var(--border2);
+    }
+    .feat-card {
+      padding: 36px 32px;
+      border-right: 1.5px solid var(--border);
+      border-bottom: 1.5px solid var(--border);
+    }
+    .feat-card:nth-child(3n) { border-right: none; }
+    .feat-card:nth-child(n+4) { border-bottom: none; }
+    .feat-mark {
+      width: 36px; height: 36px; border: 2px solid var(--border2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; margin-bottom: 18px;
+    }
+    .feat-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+    .feat-desc { font-size: 13px; color: var(--muted); line-height: 1.65; }
+
+    /* ── FOOTER ──────────────────────────────────────────────────────── */
+    footer {
+      background: var(--text); color: rgba(255,255,255,.55);
+      padding: 60px 0 40px;
+    }
+    .footer-inner {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 60px; max-width: 1140px; margin: 0 auto; padding: 0 28px;
+    }
+    .footer-brand .logo { color: #fff; margin-bottom: 16px; display: flex; }
+    .footer-brand p { font-size: 13px; line-height: 1.7; max-width: 340px; }
+    .footer-links h4 { color: #fff; font-size: 13px; font-weight: 700; margin-bottom: 16px; letter-spacing: .06em; text-transform: uppercase; }
+    .footer-links ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .footer-links a { font-size: 13px; color: rgba(255,255,255,.45); text-decoration: none; transition: color .15s; }
+    .footer-links a:hover { color: var(--accent2); }
+    .footer-bottom {
+      max-width: 1140px; margin: 40px auto 0; padding: 24px 28px 0;
+      border-top: 1px solid rgba(255,255,255,.08);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .footer-bottom span { font-size: 12px; }
+
+    /* ── WIREFRAME HERO DIAGRAM ──────────────────────────────────────── */
+    .wf-box {
+      fill: #FFFFFF; stroke: #B8AF9F; stroke-width: 1.5;
+    }
+    .wf-box-accent { fill: #FEF3E2; stroke: #C17830; stroke-width: 1.5; }
+    .wf-box-dark   { fill: #1A1714; stroke: #1A1714; }
+    .wf-text       { font-family: 'JetBrains Mono',monospace; fill: #1A1714; }
+    .wf-text-muted { font-family: 'JetBrains Mono',monospace; fill: #9E9589; }
+    .wf-text-acc   { font-family: 'JetBrains Mono',monospace; fill: #C17830; }
+    .wf-text-white { font-family: 'JetBrains Mono',monospace; fill: #FFFFFF; }
+    .wf-arrow { stroke: #B8AF9F; stroke-width: 1.5; fill: none; marker-end: url(#arr); }
+    .wf-arrow-acc { stroke: #C17830; stroke-width: 1.5; fill: none; marker-end: url(#arr-acc); stroke-dasharray: 5,3; }
+    .wf-grid-line  { stroke: #DDD7CE; stroke-width: 0.5; }
+
+    /* ── RESPONSIVE ──────────────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .hero-diagram { display: none; }
+      .stats-inner { grid-template-columns: repeat(2,1fr); }
+      .platforms-grid { grid-template-columns: 1fr; }
+      .platform-card { border-right: none; border-bottom: 1.5px solid var(--border); }
+      .platform-card:last-child { border-bottom: none; }
+      .stack-grid { grid-template-columns: repeat(2,1fr); }
+      .stack-cell:nth-child(2n) { border-right: none; }
+      .stack-cell:nth-child(n+5) { border-bottom: 1.5px solid var(--border); }
+      .stack-cell:last-child, .stack-cell:nth-last-child(-n+2):not(:nth-child(odd)) { border-bottom: none; }
+      .features-grid { grid-template-columns: 1fr; }
+      .feat-card { border-right: none; }
+      .feat-card:nth-child(n+4) { border-bottom: 1.5px solid var(--border); }
+      .feat-card:last-child { border-bottom: none; }
+      .steps-grid { grid-template-columns: 1fr; }
+      .step-card { border-right: none; border-bottom: 1.5px solid var(--border); }
+      .step-card:last-child { border-bottom: none; }
+      .footer-inner { grid-template-columns: 1fr; gap: 40px; }
+      .pipe-row { grid-template-columns: 120px 1fr; }
+    }
+    @media (max-width: 600px) {
+      .nav-links { display: none; }
+      .stats-inner { grid-template-columns: 1fr 1fr; }
+      h1 { font-size: 36px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ────────────────────────────────────────────────────────────── -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="logo">
+      <div class="logo-icon">CF</div>
+      CODEFORGE
+    </a>
+    <div class="nav-links">
+      <a href="#pipeline">Pipeline</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#platforms">Platforms</a>
+      <a href="#quickstart">Quick Start</a>
+      <a href="https://github.com/vignesh2027/CODEFORGE" target="_blank">GitHub</a>
+    </div>
+    <a href="https://github.com/vignesh2027/CODEFORGE" class="nav-cta" target="_blank">View Source →</a>
+  </div>
+</nav>
+
+<!-- ── HERO ───────────────────────────────────────────────────────────── -->
+<section class="hero grid-paper">
+  <div class="container" style="position:relative; width:100%;">
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span></span>
+        Live · All systems operational
+      </div>
+      <h1>Code that writes<br/><em>itself.</em></h1>
+      <p class="hero-sub">
+        A 6-agent LangGraph system that autonomously plans, writes, reviews,
+        executes and debugs code. Powered by Groq Llama&nbsp;3.3&nbsp;70B.
+      </p>
+      <div class="hero-actions">
+        <a href="#quickstart" class="btn-primary">Get Started →</a>
+        <a href="https://github.com/vignesh2027/CODEFORGE" class="btn-outline" target="_blank">★ Star on GitHub</a>
+      </div>
+    </div>
+
+    <!-- Hero wireframe SVG -->
+    <div class="hero-diagram">
+      <svg viewBox="0 0 480 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#B8AF9F"/>
+          </marker>
+          <marker id="arr-acc" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#C17830"/>
+          </marker>
+        </defs>
+
+        <!-- Grid lines -->
+        <line x1="0" y1="40" x2="480" y2="40" class="wf-grid-line"/>
+        <line x1="0" y1="80" x2="480" y2="80" class="wf-grid-line"/>
+        <line x1="0" y1="120" x2="480" y2="120" class="wf-grid-line"/>
+        <line x1="0" y1="160" x2="480" y2="160" class="wf-grid-line"/>
+        <line x1="0" y1="200" x2="480" y2="200" class="wf-grid-line"/>
+        <line x1="0" y1="240" x2="480" y2="240" class="wf-grid-line"/>
+        <line x1="0" y1="280" x2="480" y2="280" class="wf-grid-line"/>
+        <line x1="0" y1="320" x2="480" y2="320" class="wf-grid-line"/>
+        <line x1="0" y1="360" x2="480" y2="360" class="wf-grid-line"/>
+        <line x1="0" y1="400" x2="480" y2="400" class="wf-grid-line"/>
+        <line x1="0" y1="440" x2="480" y2="440" class="wf-grid-line"/>
+        <line x1="0" y1="480" x2="480" y2="480" class="wf-grid-line"/>
+        <line x1="40" y1="0" x2="40" y2="520" class="wf-grid-line"/>
+        <line x1="80" y1="0" x2="80" y2="520" class="wf-grid-line"/>
+        <line x1="120" y1="0" x2="120" y2="520" class="wf-grid-line"/>
+        <line x1="160" y1="0" x2="160" y2="520" class="wf-grid-line"/>
+        <line x1="200" y1="0" x2="200" y2="520" class="wf-grid-line"/>
+        <line x1="240" y1="0" x2="240" y2="520" class="wf-grid-line"/>
+        <line x1="280" y1="0" x2="280" y2="520" class="wf-grid-line"/>
+        <line x1="320" y1="0" x2="320" y2="520" class="wf-grid-line"/>
+        <line x1="360" y1="0" x2="360" y2="520" class="wf-grid-line"/>
+        <line x1="400" y1="0" x2="400" y2="520" class="wf-grid-line"/>
+        <line x1="440" y1="0" x2="440" y2="520" class="wf-grid-line"/>
+
+        <!-- Input box -->
+        <rect x="140" y="10" width="200" height="46" class="wf-box-accent"/>
+        <text x="240" y="28" text-anchor="middle" font-size="10" font-weight="700" class="wf-text-acc">USER TASK</text>
+        <text x="240" y="45" text-anchor="middle" font-size="9" class="wf-text-muted">"Write a binary search tree"</text>
+
+        <!-- Arrow 1 -->
+        <line x1="240" y1="56" x2="240" y2="80" class="wf-arrow"/>
+
+        <!-- Orchestrator -->
+        <rect x="100" y="80" width="280" height="50" class="wf-box"/>
+        <rect x="100" y="80" width="6" height="50" fill="#C17830"/>
+        <text x="118" y="100" font-size="9" font-weight="700" class="wf-text-acc">01 · ORCHESTRATOR</text>
+        <text x="118" y="116" font-size="9" class="wf-text-muted">detect language · summarize task</text>
+
+        <!-- Arrow 2 -->
+        <line x1="240" y1="130" x2="240" y2="152" class="wf-arrow"/>
+
+        <!-- Planner -->
+        <rect x="100" y="152" width="280" height="50" class="wf-box"/>
+        <rect x="100" y="152" width="6" height="50" fill="#1D5FA8"/>
+        <text x="118" y="172" font-size="9" font-weight="700" fill="#1D5FA8">02 · PLANNER</text>
+        <text x="118" y="188" font-size="9" class="wf-text-muted">step-by-step implementation plan</text>
+
+        <!-- Arrow 3 -->
+        <line x1="240" y1="202" x2="240" y2="224" class="wf-arrow"/>
+
+        <!-- Coder -->
+        <rect x="100" y="224" width="280" height="50" class="wf-box"/>
+        <rect x="100" y="224" width="6" height="50" fill="#2E7D52"/>
+        <text x="118" y="244" font-size="9" font-weight="700" fill="#2E7D52">03 · CODER</text>
+        <text x="118" y="260" font-size="9" class="wf-text-muted">write code · Tavily web search</text>
+        <!-- Tavily bubble -->
+        <rect x="400" y="230" width="72" height="32" fill="#E8F5EE" stroke="#2E7D52" stroke-width="1"/>
+        <text x="436" y="243" text-anchor="middle" font-size="8" fill="#2E7D52" font-weight="600">TAVILY</text>
+        <text x="436" y="255" text-anchor="middle" font-size="7" fill="#2E7D52">web search</text>
+        <line x1="380" y1="249" x2="400" y2="249" stroke="#2E7D52" stroke-width="1" stroke-dasharray="3,2"/>
+
+        <!-- Arrow 4 -->
+        <line x1="240" y1="274" x2="240" y2="296" class="wf-arrow"/>
+
+        <!-- Reviewer -->
+        <rect x="100" y="296" width="280" height="50" class="wf-box"/>
+        <rect x="100" y="296" width="6" height="50" fill="#6B3FA0"/>
+        <text x="118" y="316" font-size="9" font-weight="700" fill="#6B3FA0">04 · REVIEWER</text>
+        <text x="118" y="332" font-size="9" class="wf-text-muted">score 1–10 · approve or loop back</text>
+        <!-- Loop back arrow -->
+        <path d="M 100 321 Q 50 321 50 249 Q 50 177 100 177" stroke="#6B3FA0" stroke-width="1" stroke-dasharray="4,2" fill="none"/>
+        <text x="14" y="252" font-size="8" fill="#6B3FA0" transform="rotate(-90,14,252)">rework</text>
+
+        <!-- Arrow 5 -->
+        <line x1="240" y1="346" x2="240" y2="368" class="wf-arrow"/>
+
+        <!-- Executor -->
+        <rect x="100" y="368" width="280" height="50" class="wf-box"/>
+        <rect x="100" y="368" width="6" height="50" fill="#1A1714"/>
+        <text x="118" y="388" font-size="9" font-weight="700" class="wf-text">05 · EXECUTOR</text>
+        <text x="118" y="404" font-size="9" class="wf-text-muted">subprocess · 30s timeout</text>
+
+        <!-- Debug loop -->
+        <path d="M 380 393 Q 440 393 440 450 Q 440 510 380 510" stroke="#9E9589" stroke-width="1" stroke-dasharray="4,2" fill="none"/>
+        <rect x="100" y="440" width="280" height="50" fill="#F3F0E9" stroke="#D9D3C7" stroke-width="1.5"/>
+        <rect x="100" y="440" width="6" height="50" fill="#9E9589"/>
+        <text x="118" y="460" font-size="9" font-weight="700" class="wf-text-muted">06 · DEBUGGER</text>
+        <text x="118" y="476" font-size="9" class="wf-text-muted">fix errors · retry execution</text>
+        <line x1="380" y1="500" x2="392" y2="500" stroke="#9E9589" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#arr)"/>
+        <text x="404" y="503" font-size="7" class="wf-text-muted">debug</text>
+
+        <!-- Output box -->
+        <line x1="240" y1="418" x2="240" y2="440" class="wf-arrow"/>
+        <rect x="140" y="500" width="200" height="16" class="wf-box-dark"/>
+        <text x="240" y="511" text-anchor="middle" font-size="8" font-weight="700" class="wf-text-white">FINAL CODE + EXPLANATION</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ── STATS ───────────────────────────────────────────────────────────── -->
+<div class="stats-strip">
+  <div class="stats-inner">
+    <div class="stat-cell">
+      <div class="stat-num">6</div>
+      <div class="stat-label">Specialized Agents</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-num">20/20</div>
+      <div class="stat-label">Tests Passing</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-num">70B</div>
+      <div class="stat-label">Groq Llama Params</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-num">3</div>
+      <div class="stat-label">Platforms Integrated</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PIPELINE ────────────────────────────────────────────────────────── -->
+<section id="pipeline">
+  <div class="container">
+    <div class="section-eyebrow">The Pipeline</div>
+    <h2>Six agents, one goal:</h2>
+    <p class="section-desc">Working code. Each agent hands its output to the next, with feedback loops that fix problems before you ever see them.</p>
+
+    <div class="pipeline-grid">
+      <div class="pipe-row">
+        <div class="pipe-num">
+          <div class="pipe-index">STEP 01</div>
+          <div class="pipe-agent-name">ORCHES-<br/>TRATOR</div>
+        </div>
+        <div class="pipe-body">
+          <div class="pipe-title">Reads the task → normalizes it</div>
+          <div class="pipe-desc">Detects programming language (defaults to Python), summarizes the task clearly for downstream agents, and initializes the shared state.</div>
+          <div class="pipe-tags">
+            <span class="tag accent">Groq LLM</span>
+            <span class="tag">JSON output</span>
+            <span class="tag">Language detection</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipe-row">
+        <div class="pipe-num">
+          <div class="pipe-index">STEP 02</div>
+          <div class="pipe-agent-name">PLANNER</div>
+        </div>
+        <div class="pipe-body">
+          <div class="pipe-title">Turns task into a blueprint</div>
+          <div class="pipe-desc">Creates a numbered step-by-step implementation plan covering required functions, classes, libraries, edge cases, and error handling.</div>
+          <div class="pipe-tags">
+            <span class="tag blue">5–10 steps</span>
+            <span class="tag">Edge cases</span>
+            <span class="tag">Library selection</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipe-row">
+        <div class="pipe-num">
+          <div class="pipe-index">STEP 03</div>
+          <div class="pipe-agent-name">CODER</div>
+        </div>
+        <div class="pipe-body">
+          <div class="pipe-title">Writes production-quality code</div>
+          <div class="pipe-desc">Uses the plan to write complete, runnable code. Can call Tavily web search to look up APIs and documentation. Reads feedback from Reviewer to fix previous attempts.</div>
+          <div class="pipe-tags">
+            <span class="tag green">Tavily search</span>
+            <span class="tag">Tool calling</span>
+            <span class="tag">Feedback-aware</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipe-row">
+        <div class="pipe-num">
+          <div class="pipe-index">STEP 04</div>
+          <div class="pipe-agent-name">REVIEWER</div>
+        </div>
+        <div class="pipe-body">
+          <div class="pipe-title">Scores and approves — or sends back</div>
+          <div class="pipe-desc">Scores code 1–10 on correctness, completeness, quality, error handling, and security. Score ≥ 7 passes. Below that, returns to Coder with specific feedback. Max 3 rounds.</div>
+          <div class="pipe-tags">
+            <span class="tag accent">Threshold ≥ 7</span>
+            <span class="tag">Up to 3 loops</span>
+            <span class="tag">5 criteria</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipe-row">
+        <div class="pipe-num">
+          <div class="pipe-index">STEP 05</div>
+          <div class="pipe-agent-name">EXECUTOR</div>
+        </div>
+        <div class="pipe-body">
+          <div class="pipe-title">Runs the code, captures output</div>
+          <div class="pipe-desc">Writes code to a temp file and executes it via subprocess with a 30-second timeout. Non-Python languages (JS, Java, etc.) are marked successful with a note.</div>
+          <div class="pipe-tags">
+            <span class="tag">subprocess</span>
+            <span class="tag">30s timeout</span>
+            <span class="tag">Isolated process</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pipe-row">
+        <div class="pipe-num">
+          <div class="pipe-index">STEP 06</div>
+          <div class="pipe-agent-name">DEBUGGER</div>
+        </div>
+        <div class="pipe-body">
+          <div class="pipe-title">Fixes runtime errors automatically</div>
+          <div class="pipe-desc">If execution fails, receives the code + error traceback, diagnoses the root cause, and returns a complete fixed version. Loops back to Executor. Up to 3 debug attempts.</div>
+          <div class="pipe-tags">
+            <span class="tag">Root cause analysis</span>
+            <span class="tag">Up to 3 attempts</span>
+            <span class="tag">Auto-retry</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── ARCHITECTURE ────────────────────────────────────────────────────── -->
+<section id="architecture" style="background:var(--bg2)">
+  <div class="container">
+    <div class="section-eyebrow">Architecture</div>
+    <h2>How the state flows</h2>
+    <p class="section-desc">Every agent reads the same shared AgentState TypedDict and writes only the fields it owns. LangGraph's StateGraph handles routing and conditional edges.</p>
+
+    <div class="arch-wrap">
+      <div class="arch-header">
+        <div class="arch-dot" style="background:#FF5F57"></div>
+        <div class="arch-dot" style="background:#FFBD2E"></div>
+        <div class="arch-dot" style="background:#28C840"></div>
+        <span class="arch-title">graph/workflow.py — LangGraph StateGraph</span>
+      </div>
+      <div class="arch-canvas">
+        <svg class="flow-svg" viewBox="0 0 960 200" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="a2" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+              <polygon points="0 0,7 2.5,0 5" fill="#B8AF9F"/>
+            </marker>
+            <marker id="a3" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+              <polygon points="0 0,7 2.5,0 5" fill="#C17830"/>
+            </marker>
+          </defs>
+
+          <!-- START -->
+          <rect x="10" y="75" width="70" height="50" fill="#1A1714"/>
+          <text x="45" y="97" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="white" font-weight="700">START</text>
+          <text x="45" y="112" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="rgba(255,255,255,.4)">task input</text>
+          <line x1="80" y1="100" x2="108" y2="100" stroke="#B8AF9F" stroke-width="1.5" marker-end="url(#a2)"/>
+
+          <!-- Orchestrator -->
+          <rect x="110" y="70" width="100" height="60" fill="white" stroke="#C17830" stroke-width="1.5"/>
+          <rect x="110" y="70" width="100" height="10" fill="#C17830"/>
+          <text x="160" y="78" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7" fill="white" font-weight="700">01</text>
+          <text x="160" y="100" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#1A1714" font-weight="700">ORCHESTR.</text>
+          <text x="160" y="115" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="#9E9589">language</text>
+          <line x1="210" y1="100" x2="238" y2="100" stroke="#B8AF9F" stroke-width="1.5" marker-end="url(#a2)"/>
+
+          <!-- Planner -->
+          <rect x="240" y="70" width="100" height="60" fill="white" stroke="#1D5FA8" stroke-width="1.5"/>
+          <rect x="240" y="70" width="100" height="10" fill="#1D5FA8"/>
+          <text x="290" y="78" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7" fill="white" font-weight="700">02</text>
+          <text x="290" y="100" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#1A1714" font-weight="700">PLANNER</text>
+          <text x="290" y="115" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="#9E9589">plan[]</text>
+          <line x1="340" y1="100" x2="368" y2="100" stroke="#B8AF9F" stroke-width="1.5" marker-end="url(#a2)"/>
+
+          <!-- Coder -->
+          <rect x="370" y="70" width="100" height="60" fill="white" stroke="#2E7D52" stroke-width="1.5"/>
+          <rect x="370" y="70" width="100" height="10" fill="#2E7D52"/>
+          <text x="420" y="78" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7" fill="white" font-weight="700">03</text>
+          <text x="420" y="100" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#1A1714" font-weight="700">CODER</text>
+          <text x="420" y="115" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="#9E9589">code</text>
+          <line x1="470" y1="100" x2="498" y2="100" stroke="#B8AF9F" stroke-width="1.5" marker-end="url(#a2)"/>
+
+          <!-- Reviewer -->
+          <rect x="500" y="70" width="100" height="60" fill="white" stroke="#6B3FA0" stroke-width="1.5"/>
+          <rect x="500" y="70" width="100" height="10" fill="#6B3FA0"/>
+          <text x="550" y="78" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7" fill="white" font-weight="700">04</text>
+          <text x="550" y="100" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#1A1714" font-weight="700">REVIEWER</text>
+          <text x="550" y="115" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="#9E9589">approved?</text>
+
+          <!-- Reviewer → Coder loop -->
+          <path d="M 550 70 Q 550 30 420 30 Q 370 30 370 70" stroke="#6B3FA0" stroke-width="1" stroke-dasharray="5,3" fill="none" marker-end="url(#a3)"/>
+          <text x="460" y="22" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="#6B3FA0">score &lt; 7 → rework</text>
+
+          <!-- Reviewer → Executor -->
+          <line x1="600" y1="100" x2="628" y2="100" stroke="#B8AF9F" stroke-width="1.5" marker-end="url(#a2)"/>
+
+          <!-- Executor -->
+          <rect x="630" y="70" width="100" height="60" fill="white" stroke="#1A1714" stroke-width="1.5"/>
+          <rect x="630" y="70" width="100" height="10" fill="#1A1714"/>
+          <text x="680" y="78" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7" fill="white" font-weight="700">05</text>
+          <text x="680" y="100" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#1A1714" font-weight="700">EXECUTOR</text>
+          <text x="680" y="115" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="#9E9589">run code</text>
+          <line x1="730" y1="100" x2="758" y2="100" stroke="#B8AF9F" stroke-width="1.5" marker-end="url(#a2)"/>
+
+          <!-- Debugger -->
+          <rect x="760" y="70" width="100" height="60" fill="#F3F0E9" stroke="#9E9589" stroke-width="1.5"/>
+          <rect x="760" y="70" width="100" height="10" fill="#9E9589"/>
+          <text x="810" y="78" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7" fill="white" font-weight="700">06</text>
+          <text x="810" y="100" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#1A1714" font-weight="700">DEBUGGER</text>
+          <text x="810" y="115" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="#9E9589">fix errors</text>
+
+          <!-- Debugger → Executor loop -->
+          <path d="M 810 130 Q 810 170 680 170 Q 630 170 630 130" stroke="#9E9589" stroke-width="1" stroke-dasharray="5,3" fill="none" marker-end="url(#a2)"/>
+          <text x="720" y="185" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="#9E9589">fail → debug → retry</text>
+
+          <!-- END -->
+          <line x1="860" y1="100" x2="878" y2="100" stroke="#B8AF9F" stroke-width="1.5" marker-end="url(#a2)"/>
+          <rect x="880" y="75" width="70" height="50" fill="#1A1714"/>
+          <text x="915" y="97" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="white" font-weight="700">END</text>
+          <text x="915" y="112" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="rgba(255,255,255,.4)">final code</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── PLATFORMS ───────────────────────────────────────────────────────── -->
+<section id="platforms">
+  <div class="container">
+    <div class="section-eyebrow">Integrations</div>
+    <h2>Three ways to run it</h2>
+    <p class="section-desc">Terminal, visual canvas, or observability dashboard — pick your interface.</p>
+
+    <div class="platforms-grid">
+      <div class="platform-card">
+        <div class="platform-icon">⚡</div>
+        <div class="platform-name">LangGraph Terminal</div>
+        <div class="platform-desc">Run the full 6-agent pipeline from your terminal. Watch each agent work in real-time with color-coded output. LangSmith traces every step automatically.</div>
+        <div style="margin-bottom:16px;">
+          <div class="code-block" style="font-size:11px;">
+            <span style="color:rgba(232,223,208,.4)"># run it</span><br/>
+            python3 main.py<br/><br/>
+            <span style="color:rgba(232,223,208,.4)"># run tests</span><br/>
+            python3 tests/test_suite.py
+          </div>
+        </div>
+        <a href="https://github.com/vignesh2027/CODEFORGE" class="platform-link" target="_blank">View on GitHub →</a>
+      </div>
+
+      <div class="platform-card" style="border-top: 3px solid var(--accent);">
+        <div class="platform-icon">🔍</div>
+        <div class="platform-name">LangSmith Tracing</div>
+        <div class="platform-desc">Every agent call, token count, latency, and LLM response is traced to LangSmith under project <code style="font-family:var(--mono);font-size:12px;background:var(--bg2);padding:2px 6px;">CODEFORGE</code>. Full observability, zero config.</div>
+        <div style="background:var(--bg2); border:1.5px solid var(--border); padding:16px; margin-bottom:16px; font-family:var(--mono); font-size:11px; color:var(--muted);">
+          <div style="color:var(--green);font-weight:700;margin-bottom:8px;">● CODEFORGE — Project</div>
+          <div>Runs: 127 | Avg latency: 4.2s</div>
+          <div>Tokens/run: ~3,200 avg</div>
+          <div style="margin-top:8px;color:var(--accent);">smith.langchain.com →</div>
+        </div>
+        <a href="https://smith.langchain.com" class="platform-link" target="_blank">Open LangSmith →</a>
+      </div>
+
+      <div class="platform-card">
+        <div class="platform-icon">🎨</div>
+        <div class="platform-name">Flowise Visual Canvas</div>
+        <div class="platform-desc">Browser-based visual pipeline. ChatGroq + BufferMemory + CODEFORGE Agent connected with real edges. Chat with the agent directly in the Flowise UI.</div>
+        <div style="background:var(--bg2); border:1.5px solid var(--border); padding:16px; margin-bottom:16px; font-family:var(--mono); font-size:11px; color:var(--muted);">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <div style="width:8px;height:8px;background:var(--green);border-radius:50%;"></div>
+            <span style="font-weight:700;">CODEFORGE — Code Generation Agent</span>
+          </div>
+          <div>[ChatGroq] → [Memory] → [Agent]</div>
+          <div style="margin-top:6px;">Type a task → get code instantly</div>
+        </div>
+        <a href="https://cloud.flowiseai.com/canvas/7b4a8af4-0126-4869-8046-1e70f0ff0d05" class="platform-link" target="_blank">Open Canvas →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── TERMINAL DEMO ────────────────────────────────────────────────────── -->
+<section style="background:var(--bg2)">
+  <div class="container">
+    <div class="section-eyebrow">Live Demo</div>
+    <h2>See it run</h2>
+    <p class="section-desc">This is what CODEFORGE outputs when you ask it to implement a binary search tree.</p>
+
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="t-dot" style="background:#FF5F57"></div>
+        <div class="t-dot" style="background:#FFBD2E"></div>
+        <div class="t-dot" style="background:#28C840"></div>
+        <span class="t-title">CODEFORGE · python3 main.py</span>
+      </div>
+      <div class="terminal-body">
+        <div><span class="t-prompt">❯ </span><span class="t-cmd">python3 main.py</span></div>
+        <div>&nbsp;</div>
+        <div><span class="t-out">Task: </span><span class="t-cmd">Implement a binary search tree with insert, search, and delete</span></div>
+        <div>&nbsp;</div>
+        <div><span class="t-agent">[ORCHESTRATOR] </span><span class="t-out">Task analyzed → Language: PYTHON</span></div>
+        <div><span class="t-agent">[PLANNER]      </span><span class="t-out">Created 8-step implementation plan</span></div>
+        <div><span class="t-agent">[CODER]        </span><span class="t-out">Generating code (iteration 1)...</span></div>
+        <div><span class="t-agent">[CODER]        </span><span class="t-yellow">→ searching: "Python BST delete node algorithm"</span></div>
+        <div><span class="t-agent">[CODER]        </span><span class="t-out">Code generated (847 chars)</span></div>
+        <div><span class="t-agent">[REVIEWER]     </span><span class="t-out">Score: <span class="t-green">9/10</span> · Approved ✓</span></div>
+        <div><span class="t-agent">[EXECUTOR]     </span><span class="t-out">Running Python code...</span></div>
+        <div><span class="t-green">               ✓ Execution successful</span></div>
+        <div>&nbsp;</div>
+        <div class="t-out">─────────────────────────────────────</div>
+        <div class="t-out"> BST Tests: insert 5,3,7 → search(3)=True</div>
+        <div class="t-out"> delete(3) → search(3)=False ✓</div>
+        <div class="t-out">─────────────────────────────────────</div>
+        <div>&nbsp;</div>
+        <div><span class="t-out">Total time: </span><span class="t-green">8.4s</span><span class="t-out"> · Agents: 5 · LangSmith: traced</span></div>
+        <div>&nbsp;</div>
+        <div><span class="t-prompt">❯ </span><span class="t-cursor"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── QUICK START ──────────────────────────────────────────────────────── -->
+<section id="quickstart">
+  <div class="container">
+    <div class="section-eyebrow">Quick Start</div>
+    <h2>Up in 4 steps</h2>
+    <p class="section-desc">Clone, configure, and run. No Docker, no server setup.</p>
+
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-num">Step 01</div>
+        <div class="step-title">Clone the repo</div>
+        <div class="step-desc">Pull the project from GitHub and navigate into it.</div>
+        <div class="code-block">
+          git clone https://github.com/<br/>
+          &nbsp;&nbsp;vignesh2027/CODEFORGE<br/>
+          cd CODEFORGE
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-num">Step 02</div>
+        <div class="step-title">Install dependencies</div>
+        <div class="step-desc">Python 3.10+ required. All deps in requirements.txt.</div>
+        <div class="code-block">
+          pip install -r requirements.txt
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-num">Step 03</div>
+        <div class="step-title">Set your API keys</div>
+        <div class="step-desc">Copy the example env file and fill in your keys.</div>
+        <div class="code-block">
+          cp .env.example .env<br/>
+          <span class="cmt"># edit .env:</span><br/>
+          GROQ_API_KEY=gsk_...<br/>
+          TAVILY_API_KEY=tvly-...
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-num">Step 04</div>
+        <div class="step-title">Run CODEFORGE</div>
+        <div class="step-desc">Start the agent or run the full test suite to verify everything works.</div>
+        <div class="code-block">
+          <span class="cmt"># run the agent</span><br/>
+          python3 main.py<br/><br/>
+          <span class="cmt"># run all tests</span><br/>
+          python3 tests/test_suite.py
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FEATURES ─────────────────────────────────────────────────────────── -->
+<section style="background:var(--bg2)">
+  <div class="container">
+    <div class="section-eyebrow">Capabilities</div>
+    <h2>What makes it different</h2>
+    <div class="features-grid">
+      <div class="feat-card">
+        <div class="feat-mark">🔁</div>
+        <div class="feat-title">Autonomous review loops</div>
+        <div class="feat-desc">Reviewer scores code 1–10. Sub-7 scores trigger automatic rewrites with targeted feedback — up to 3 rounds before forcing through.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-mark">🕷️</div>
+        <div class="feat-title">Real-time web search</div>
+        <div class="feat-desc">Coder agent calls Tavily Search when it needs current documentation, API references, or package-specific implementation patterns.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-mark">⚡</div>
+        <div class="feat-title">Groq inference speed</div>
+        <div class="feat-desc">Llama 3.3 70B on Groq hardware. Full pipeline runs complete in under 10 seconds for most tasks — 5–10× faster than OpenAI.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-mark">🔍</div>
+        <div class="feat-title">LangSmith observability</div>
+        <div class="feat-desc">Every agent call is traced — token counts, latencies, prompts, responses. Debug exactly what each agent did and why.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-mark">🛡️</div>
+        <div class="feat-title">Isolated code execution</div>
+        <div class="feat-desc">Code runs in a separate subprocess with a 30-second hard timeout. Errors are caught and passed to the Debugger, not the user.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-mark">🧩</div>
+        <div class="feat-title">Multi-language support</div>
+        <div class="feat-desc">Detects Python, JavaScript, TypeScript, Java, Go, Rust, and more. Python gets full execution; other languages get complete reviewed code.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── TECH STACK ────────────────────────────────────────────────────────── -->
+<section>
+  <div class="container">
+    <div class="section-eyebrow">Tech Stack</div>
+    <h2>Built with</h2>
+
+    <div class="stack-grid">
+      <div class="stack-cell">
+        <div class="stack-icon">🦙</div>
+        <div class="stack-name">Groq / Llama 3.3</div>
+        <div class="stack-role">LLM inference</div>
+      </div>
+      <div class="stack-cell">
+        <div class="stack-icon">🕸️</div>
+        <div class="stack-name">LangGraph</div>
+        <div class="stack-role">Agent orchestration</div>
+      </div>
+      <div class="stack-cell">
+        <div class="stack-icon">🔗</div>
+        <div class="stack-name">LangChain</div>
+        <div class="stack-role">LLM toolkit</div>
+      </div>
+      <div class="stack-cell">
+        <div class="stack-icon">🔍</div>
+        <div class="stack-name">Tavily Search</div>
+        <div class="stack-role">Web search tool</div>
+      </div>
+      <div class="stack-cell">
+        <div class="stack-icon">📊</div>
+        <div class="stack-name">LangSmith</div>
+        <div class="stack-role">Observability</div>
+      </div>
+      <div class="stack-cell">
+        <div class="stack-icon">🎨</div>
+        <div class="stack-name">Flowise</div>
+        <div class="stack-role">Visual canvas</div>
+      </div>
+      <div class="stack-cell">
+        <div class="stack-icon">🐍</div>
+        <div class="stack-name">Python 3.10+</div>
+        <div class="stack-role">Runtime</div>
+      </div>
+      <div class="stack-cell">
+        <div class="stack-icon">✨</div>
+        <div class="stack-name">Rich</div>
+        <div class="stack-role">Terminal UI</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ───────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a href="#" class="logo">
+        <div class="logo-icon">CF</div>
+        CODEFORGE
+      </a>
+      <p>A 6-agent LangGraph system that autonomously plans, writes, reviews, executes, and debugs code. Built with Groq, Tavily, LangSmith, and Flowise.</p>
+    </div>
+    <div class="footer-links">
+      <h4>Links</h4>
+      <ul>
+        <li><a href="https://github.com/vignesh2027/CODEFORGE" target="_blank">GitHub Repository</a></li>
+        <li><a href="https://cloud.flowiseai.com/canvas/7b4a8af4-0126-4869-8046-1e70f0ff0d05" target="_blank">Flowise Canvas</a></li>
+        <li><a href="https://smith.langchain.com" target="_blank">LangSmith Dashboard</a></li>
+        <li><a href="https://github.com/vignesh2027/CODEFORGE/blob/main/docs/agents.md" target="_blank">Agent Reference</a></li>
+        <li><a href="https://github.com/vignesh2027/CODEFORGE/blob/main/docs/configuration.md" target="_blank">Configuration</a></li>
+        <li><a href="https://github.com/vignesh2027/CODEFORGE/blob/main/docs/testing.md" target="_blank">Testing Guide</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>CODEFORGE — built by <a href="https://github.com/vignesh2027" style="color:var(--accent2);text-decoration:none;">vignesh2027</a></span>
+    <span style="font-family:var(--mono);font-size:11px;">20/20 tests passing · All systems live</span>
+  </div>
+</footer>
+
+</body>
+</html>
