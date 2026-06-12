@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CODEFORGE — Documentation</title>
+  <meta name="description" content="Full documentation for CODEFORGE: 6-agent LangGraph code generation system. Agent reference, configuration, API, testing, and integration guides." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:     #FAFAF6; --bg2: #F3F0E9; --bg3: #EDE9DF;
+      --card:   #FFFFFF; --border: #D9D3C7; --border2: #B8AF9F;
+      --text:   #1A1714; --muted: #6B6358; --light: #9E9589;
+      --accent: #C17830; --accent2: #E8912A; --accentbg: #FEF3E2;
+      --green:  #2E7D52; --greenbg: #E8F5EE;
+      --blue:   #1D5FA8; --bluebg: #E8F0FA;
+      --purple: #6B3FA0; --purplebg: #F0EAF8;
+      --red:    #B92C2C; --redbg: #FDECEA;
+      --mono: 'JetBrains Mono', monospace;
+      --sans: 'Inter', system-ui, sans-serif;
+      --sidebar: 260px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--sans); background: var(--bg); color: var(--text); line-height: 1.7; font-size: 15px; display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* ── TOP NAV ── */
+    .topnav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(250,250,246,.95); backdrop-filter: blur(10px);
+      border-bottom: 1.5px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 28px; height: 56px;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-weight: 700; font-size: 16px; color: var(--text); text-decoration: none; }
+    .logo-box { width: 28px; height: 28px; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--accent); font-weight: 700; }
+    .topnav-right { display: flex; align-items: center; gap: 20px; }
+    .topnav-right a { font-size: 13px; font-weight: 500; color: var(--muted); text-decoration: none; }
+    .topnav-right a:hover { color: var(--accent); }
+    .btn-sm { background: var(--accent); color: #fff !important; padding: 6px 16px; font-size: 13px; font-weight: 600; }
+
+    /* ── LAYOUT ── */
+    .layout { display: flex; flex: 1; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar); flex-shrink: 0;
+      position: sticky; top: 56px; height: calc(100vh - 56px);
+      overflow-y: auto; border-right: 1.5px solid var(--border);
+      background: var(--bg2); padding: 28px 0;
+    }
+    .sidebar-section { margin-bottom: 28px; }
+    .sidebar-label {
+      font-size: 10px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--light);
+      padding: 0 20px; margin-bottom: 8px;
+    }
+    .sidebar a {
+      display: block; padding: 7px 20px;
+      font-size: 13px; font-weight: 500; color: var(--muted);
+      text-decoration: none; border-left: 2px solid transparent;
+      transition: all .12s;
+    }
+    .sidebar a:hover, .sidebar a.active {
+      color: var(--accent); border-left-color: var(--accent);
+      background: var(--accentbg);
+    }
+
+    /* ── MAIN CONTENT ── */
+    .main { flex: 1; min-width: 0; }
+    .content { max-width: 820px; margin: 0 auto; padding: 52px 48px 80px; }
+
+    /* ── PROSE ── */
+    h1 { font-size: 36px; font-weight: 800; letter-spacing: -.025em; line-height: 1.15; margin-bottom: 12px; }
+    h2 { font-size: 24px; font-weight: 700; letter-spacing: -.02em; margin: 52px 0 16px; padding-top: 52px; border-top: 1.5px solid var(--border); }
+    h2:first-of-type { margin-top: 36px; }
+    h3 { font-size: 17px; font-weight: 700; margin: 28px 0 10px; }
+    h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+    p { margin-bottom: 16px; color: var(--text); }
+    p:last-child { margin-bottom: 0; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    ul, ol { margin: 12px 0 16px 24px; }
+    li { margin-bottom: 6px; }
+    strong { font-weight: 600; }
+    code { font-family: var(--mono); font-size: 12.5px; background: var(--bg3); padding: 2px 6px; border: 1px solid var(--border); color: var(--text); }
+    pre { background: var(--text); color: #E8DFD0; padding: 22px 24px; font-family: var(--mono); font-size: 12.5px; line-height: 1.8; overflow-x: auto; margin: 20px 0; border: none; }
+    pre code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; }
+    .cm  { color: rgba(232,223,208,.35); }
+    .kw  { color: #E8912A; }
+    .st  { color: #4ADE80; }
+    .fn  { color: #60A5FA; }
+    .nb  { color: #F472B6; }
+
+    /* ── CALLOUTS ── */
+    .callout { border-left: 3px solid var(--border2); padding: 14px 20px; background: var(--bg2); margin: 20px 0; border-radius: 0; }
+    .callout.info   { border-color: var(--blue);   background: var(--bluebg); }
+    .callout.tip    { border-color: var(--green);  background: var(--greenbg); }
+    .callout.warn   { border-color: var(--accent); background: var(--accentbg); }
+    .callout.danger { border-color: var(--red);    background: var(--redbg); }
+    .callout-title { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; }
+    .callout.info   .callout-title { color: var(--blue); }
+    .callout.tip    .callout-title { color: var(--green); }
+    .callout.warn   .callout-title { color: var(--accent); }
+    .callout.danger .callout-title { color: var(--red); }
+    .callout p { margin-bottom: 0; font-size: 14px; }
+
+    /* ── TABLES ── */
+    .table-wrap { overflow-x: auto; margin: 20px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { background: var(--bg2); text-align: left; padding: 10px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); border-bottom: 1.5px solid var(--border2); }
+    td { padding: 11px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--bg2); }
+
+    /* ── AGENT CARDS ── */
+    .agent-card { border: 1.5px solid var(--border2); margin: 20px 0; overflow: hidden; }
+    .agent-header { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1.5px solid var(--border); }
+    .agent-num { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--light); }
+    .agent-name { font-family: var(--mono); font-size: 15px; font-weight: 700; }
+    .agent-badge { margin-left: auto; font-size: 11px; font-weight: 600; padding: 3px 10px; border: 1.5px solid; }
+    .agent-body { padding: 20px; }
+    .agent-body p { font-size: 14px; }
+    .io-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+    .io-box { background: var(--bg2); padding: 14px 16px; }
+    .io-label { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--light); margin-bottom: 8px; }
+    .io-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .io-tag { font-family: var(--mono); font-size: 11px; padding: 2px 8px; background: var(--card); border: 1px solid var(--border2); color: var(--muted); }
+
+    /* ── ENV TABLE ── */
+    .env-required { color: var(--red); font-weight: 700; font-size: 11px; }
+    .env-optional { color: var(--muted); font-size: 11px; }
+
+    /* ── FLOW DIAGRAM ── */
+    .flow-wrap { border: 1.5px solid var(--border2); background: var(--card); margin: 24px 0; overflow: hidden; }
+    .flow-header { padding: 12px 20px; background: var(--bg2); border-bottom: 1.5px solid var(--border); font-family: var(--mono); font-size: 11px; color: var(--light); display: flex; gap: 8px; align-items: center; }
+    .f-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .flow-body { padding: 28px 24px; overflow-x: auto; }
+
+    /* ── STEP TIMELINE ── */
+    .steps { list-style: none; margin: 20px 0; padding: 0; }
+    .step-item { display: flex; gap: 16px; margin-bottom: 0; padding-bottom: 28px; position: relative; }
+    .step-item:not(:last-child)::before { content: ''; position: absolute; left: 15px; top: 32px; bottom: 0; width: 1.5px; background: var(--border2); }
+    .step-circle { width: 32px; height: 32px; border: 2px solid var(--accent); background: var(--card); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--accent); flex-shrink: 0; }
+    .step-body { flex: 1; }
+    .step-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .step-desc { font-size: 14px; color: var(--muted); }
+
+    /* ── FOOTER ── */
+    footer { background: var(--text); color: rgba(255,255,255,.4); padding: 28px 48px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
+    footer a { color: var(--accent2); text-decoration: none; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      .sidebar { display: none; }
+      .content { padding: 32px 24px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="topnav">
+  <a href="index.html" class="logo">
+    <div class="logo-box">CF</div>
+    CODEFORGE
+  </a>
+  <div class="topnav-right">
+    <a href="index.html">Home</a>
+    <a href="docs.html" style="color:var(--accent);">Docs</a>
+    <a href="https://github.com/vignesh2027/CODEFORGE" target="_blank">GitHub</a>
+    <a href="https://vignesh2027.github.io/CODEFORGE" class="btn-sm">Live Site</a>
+  </div>
+</nav>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Getting Started</div>
+      <a href="#overview" class="active">Overview</a>
+      <a href="#quickstart">Quick Start</a>
+      <a href="#configuration">Configuration</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Agents</div>
+      <a href="#agents">All Agents</a>
+      <a href="#orchestrator">Orchestrator</a>
+      <a href="#planner">Planner</a>
+      <a href="#coder">Coder</a>
+      <a href="#reviewer">Reviewer</a>
+      <a href="#executor">Executor</a>
+      <a href="#debugger">Debugger</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Architecture</div>
+      <a href="#state">Shared State</a>
+      <a href="#routing">Routing Logic</a>
+      <a href="#tools">Tools</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Integrations</div>
+      <a href="#langsmith">LangSmith</a>
+      <a href="#flowise">Flowise</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Testing</div>
+      <a href="#testing">Test Suite</a>
+      <a href="#adding-tests">Adding Tests</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Reference</div>
+      <a href="#env-vars">All Env Vars</a>
+      <a href="#project-structure">File Structure</a>
+      <a href="#faq">FAQ</a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="content">
+
+      <!-- OVERVIEW -->
+      <section id="overview">
+        <h1>CODEFORGE Docs</h1>
+        <p>Full reference for the CODEFORGE multi-agent code generation system. Built on LangGraph, powered by Groq Llama 3.3 70B, with Tavily web search, LangSmith observability, and a Flowise visual canvas.</p>
+
+        <div class="callout tip">
+          <div class="callout-title">✅ 20/20 Tests Passing</div>
+          <p>All tests pass on Python 3.10+. Run <code>python3 tests/test_suite.py</code> to verify your setup.</p>
+        </div>
+
+        <h3>How it works in one sentence</h3>
+        <p>You give CODEFORGE a coding task in plain English. Six specialized agents pass it through a state machine: Orchestrator → Planner → Coder (with web search) → Reviewer (loops back if quality &lt; 7) → Executor → Debugger (loops back if runtime fails). You get working, reviewed, executed code.</p>
+
+        <div class="flow-wrap">
+          <div class="flow-header">
+            <div class="f-dot" style="background:#FF5F57"></div>
+            <div class="f-dot" style="background:#FFBD2E"></div>
+            <div class="f-dot" style="background:#28C840"></div>
+            graph/workflow.py — LangGraph StateGraph
+          </div>
+          <div class="flow-body">
+            <svg viewBox="0 0 760 72" xmlns="http://www.w3.org/2000/svg" style="width:100%;min-width:600px">
+              <defs>
+                <marker id="d1" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto">
+                  <polygon points="0 0,6 2,0 4" fill="#B8AF9F"/>
+                </marker>
+              </defs>
+              <!-- nodes -->
+              <rect x="0" y="11" width="80" height="50" fill="#1A1714"/>
+              <text x="40" y="32" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="white" font-weight="700">START</text>
+              <text x="40" y="47" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7" fill="rgba(255,255,255,.4)">task input</text>
+              <line x1="80" y1="36" x2="96" y2="36" stroke="#B8AF9F" stroke-width="1.5" marker-end="url(#d1)"/>
+
+              <rect x="98" y="11" width="85" height="50" fill="white" stroke="#C17830" stroke-width="1.5"/>
+              <text x="140" y="32" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="#C17830" font-weight="700">ORCHESTR.</text>
+              <text x="140" y="47" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7" fill="#9E9589">detect lang</text>
+              <line x1="183" y1="36" x2="199" y2="36" stroke="#B8AF9F" stroke-width="1.5" marker-end="url(#d1)"/>
+
+              <rect x="201" y="11" width="85" height="50" fill="white" stroke="#1D5FA8" stroke-width="1.5"/>
+              <text x="243" y="32" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="#1D5FA8" font-weight="700">PLANNER</text>
+              <text x="243" y="47" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7" fill="#9E9589">build plan</text>
+              <line x1="286" y1="36" x2="302" y2="36" stroke="#B8AF9F" stroke-width="1.5" marker-end="url(#d1)"/>
+
+              <rect x="304" y="11" width="85" height="50" fill="white" stroke="#2E7D52" stroke-width="1.5"/>
+              <text x="346" y="32" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="#2E7D52" font-weight="700">CODER</text>
+              <text x="346" y="47" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7" fill="#9E9589">write code</text>
+              <line x1="389" y1="36" x2="405" y2="36" stroke="#B8AF9F" stroke-width="1.5" marker-end="url(#d1)"/>
+
+              <rect x="407" y="11" width="85" height="50" fill="white" stroke="#6B3FA0" stroke-width="1.5"/>
+              <text x="449" y="32" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="#6B3FA0" font-weight="700">REVIEWER</text>
+              <text x="449" y="47" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7" fill="#9E9589">score 1–10</text>
+              <path d="M449 11 Q449 2 346 2 Q304 2 304 11" stroke="#6B3FA0" stroke-width="1" stroke-dasharray="4,2" fill="none" marker-end="url(#d1)"/>
+              <line x1="492" y1="36" x2="508" y2="36" stroke="#B8AF9F" stroke-width="1.5" marker-end="url(#d1)"/>
+
+              <rect x="510" y="11" width="85" height="50" fill="white" stroke="#1A1714" stroke-width="1.5"/>
+              <text x="552" y="32" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="#1A1714" font-weight="700">EXECUTOR</text>
+              <text x="552" y="47" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7" fill="#9E9589">run code</text>
+              <line x1="595" y1="36" x2="611" y2="36" stroke="#B8AF9F" stroke-width="1.5" marker-end="url(#d1)"/>
+
+              <rect x="613" y="11" width="85" height="50" fill="#F3F0E9" stroke="#9E9589" stroke-width="1.5"/>
+              <text x="655" y="32" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="#1A1714" font-weight="700">DEBUGGER</text>
+              <text x="655" y="47" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7" fill="#9E9589">fix errors</text>
+              <path d="M655 61 Q655 70 552 70 Q510 70 510 61" stroke="#9E9589" stroke-width="1" stroke-dasharray="4,2" fill="none" marker-end="url(#d1)"/>
+
+              <line x1="698" y1="36" x2="714" y2="36" stroke="#B8AF9F" stroke-width="1.5" marker-end="url(#d1)"/>
+              <rect x="716" y="11" width="44" height="50" fill="#1A1714"/>
+              <text x="738" y="32" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="8" fill="white" font-weight="700">END</text>
+              <text x="738" y="47" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7" fill="rgba(255,255,255,.4)">done</text>
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      <!-- QUICK START -->
+      <h2 id="quickstart">Quick Start</h2>
+
+      <ol class="steps">
+        <li class="step-item">
+          <div class="step-circle">1</div>
+          <div class="step-body">
+            <div class="step-title">Clone and install</div>
+            <div class="step-desc">Python 3.10+ required.</div>
+            <pre><code>git clone https://github.com/vignesh2027/CODEFORGE.git
+cd CODEFORGE
+pip install -r requirements.txt</code></pre>
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-circle">2</div>
+          <div class="step-body">
+            <div class="step-title">Configure keys</div>
+            <div class="step-desc">Copy the example and fill in Groq + Tavily keys.</div>
+            <pre><code>cp .env.example .env
+# edit .env and set:
+GROQ_API_KEY=gsk_...
+TAVILY_API_KEY=tvly-...</code></pre>
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-circle">3</div>
+          <div class="step-body">
+            <div class="step-title">Run</div>
+            <pre><code>python3 main.py</code></pre>
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-circle">4</div>
+          <div class="step-body">
+            <div class="step-title">Verify with tests</div>
+            <pre><code>python3 tests/test_suite.py
+<span class="cm"># Expected: 20/20 passing · 100%</span></code></pre>
+          </div>
+        </li>
+      </ol>
+
+      <!-- CONFIGURATION -->
+      <h2 id="configuration">Configuration</h2>
+      <p>All configuration is via a <code>.env</code> file in the project root. Copy <code>.env.example</code> to get started. The file is gitignored and never committed.</p>
+
+      <h3 id="env-vars">All Environment Variables</h3>
+
+      <div class="table-wrap">
+        <table>
+          <tr><th>Variable</th><th>Required</th><th>Default</th><th>Description</th></tr>
+          <tr>
+            <td><code>GROQ_API_KEY</code></td>
+            <td><span class="env-required">Required</span></td>
+            <td>—</td>
+            <td>Groq API key. Get free at <a href="https://console.groq.com" target="_blank">console.groq.com</a></td>
+          </tr>
+          <tr>
+            <td><code>TAVILY_API_KEY</code></td>
+            <td><span class="env-required">Required</span></td>
+            <td>—</td>
+            <td>Tavily search key. Get free at <a href="https://app.tavily.com" target="_blank">app.tavily.com</a></td>
+          </tr>
+          <tr>
+            <td><code>MODEL_NAME</code></td>
+            <td><span class="env-optional">Optional</span></td>
+            <td><code>llama-3.3-70b-versatile</code></td>
+            <td>Groq model to use. All agents share this model.</td>
+          </tr>
+          <tr>
+            <td><code>TEMPERATURE</code></td>
+            <td><span class="env-optional">Optional</span></td>
+            <td><code>0.1</code></td>
+            <td>LLM temperature. Lower = more deterministic code.</td>
+          </tr>
+          <tr>
+            <td><code>MAX_CODE_ITERATIONS</code></td>
+            <td><span class="env-optional">Optional</span></td>
+            <td><code>3</code></td>
+            <td>Max rounds Reviewer can reject before code is forced through.</td>
+          </tr>
+          <tr>
+            <td><code>MAX_DEBUG_ATTEMPTS</code></td>
+            <td><span class="env-optional">Optional</span></td>
+            <td><code>3</code></td>
+            <td>Max Debugger attempts before giving up.</td>
+          </tr>
+          <tr>
+            <td><code>LANGSMITH_API_KEY</code></td>
+            <td><span class="env-optional">Optional</span></td>
+            <td>—</td>
+            <td>LangSmith personal token (<code>lsv2_pt_*</code>). Do NOT use a service key.</td>
+          </tr>
+          <tr>
+            <td><code>LANGSMITH_TRACING</code></td>
+            <td><span class="env-optional">Optional</span></td>
+            <td><code>false</code></td>
+            <td>Set <code>true</code> to enable LangSmith tracing.</td>
+          </tr>
+          <tr>
+            <td><code>LANGSMITH_PROJECT</code></td>
+            <td><span class="env-optional">Optional</span></td>
+            <td><code>CODEFORGE</code></td>
+            <td>Project name in LangSmith dashboard.</td>
+          </tr>
+          <tr>
+            <td><code>FLOWISE_API_KEY</code></td>
+            <td><span class="env-optional">Optional</span></td>
+            <td>—</td>
+            <td>Flowise API key. Only needed for <code>flowise/create_flow.py</code>.</td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-title">⚠️ LangSmith key type matters</div>
+        <p>Use a <strong>personal token</strong> (<code>lsv2_pt_*</code>), not a service key (<code>lsv2_sk_*</code>). Service keys may have <code>null</code> workspace IDs and will return 403 on run creation.</p>
+      </div>
+
+      <!-- AGENTS -->
+      <h2 id="agents">Agents</h2>
+      <p>Six agents run in sequence. Each reads the full <code>AgentState</code> and writes only the fields it owns. Feedback loops are handled by LangGraph conditional edges.</p>
+
+      <h3 id="orchestrator">1. Orchestrator</h3>
+      <div class="agent-card">
+        <div class="agent-header">
+          <span class="agent-num">01</span>
+          <span class="agent-name" style="color:var(--accent)">ORCHESTRATOR</span>
+          <span class="agent-badge" style="border-color:var(--accent);color:var(--accent)">agents/orchestrator.py</span>
+        </div>
+        <div class="agent-body">
+          <p>Reads the raw user task and normalizes it. Calls Groq with a strict JSON-response prompt. Detects the programming language (defaults to Python if ambiguous) and produces a clean task summary for all downstream agents.</p>
+          <div class="io-grid">
+            <div class="io-box">
+              <div class="io-label">Reads from state</div>
+              <div class="io-tags"><span class="io-tag">task (raw)</span></div>
+            </div>
+            <div class="io-box">
+              <div class="io-label">Writes to state</div>
+              <div class="io-tags"><span class="io-tag">task (summarized)</span><span class="io-tag">language</span></div>
+            </div>
+          </div>
+          <h4>Output format</h4>
+          <pre><code><span class="cm">// JSON response from Groq</span>
+{
+  <span class="st">"task_summary"</span>: <span class="st">"Implement a BST with insert, search, delete"</span>,
+  <span class="st">"language"</span>: <span class="st">"python"</span>
+}</code></pre>
+        </div>
+      </div>
+
+      <h3 id="planner">2. Planner</h3>
+      <div class="agent-card">
+        <div class="agent-header">
+          <span class="agent-num">02</span>
+          <span class="agent-name" style="color:var(--blue)">PLANNER</span>
+          <span class="agent-badge" style="border-color:var(--blue);color:var(--blue)">agents/planner.py</span>
+        </div>
+        <div class="agent-body">
+          <p>Turns the task summary into a numbered step-by-step implementation blueprint. Identifies required functions, classes, libraries, edge cases, and error handling requirements.</p>
+          <div class="io-grid">
+            <div class="io-box">
+              <div class="io-label">Reads from state</div>
+              <div class="io-tags"><span class="io-tag">task</span><span class="io-tag">language</span></div>
+            </div>
+            <div class="io-box">
+              <div class="io-label">Writes to state</div>
+              <div class="io-tags"><span class="io-tag">plan</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3 id="coder">3. Coder</h3>
+      <div class="agent-card">
+        <div class="agent-header">
+          <span class="agent-num">03</span>
+          <span class="agent-name" style="color:var(--green)">CODER</span>
+          <span class="agent-badge" style="border-color:var(--green);color:var(--green)">agents/coder.py</span>
+        </div>
+        <div class="agent-body">
+          <p>Writes complete, production-quality code following the plan. Uses <code>llm.bind_tools([search_tool])</code> to optionally call Tavily web search (up to 3 times per iteration) when it needs current documentation. Context-aware: reads <code>review_feedback</code> and <code>debug_notes</code> to fix prior attempts.</p>
+          <div class="io-grid">
+            <div class="io-box">
+              <div class="io-label">Reads from state</div>
+              <div class="io-tags"><span class="io-tag">task</span><span class="io-tag">language</span><span class="io-tag">plan</span><span class="io-tag">review_feedback</span><span class="io-tag">debug_notes</span></div>
+            </div>
+            <div class="io-box">
+              <div class="io-label">Writes to state</div>
+              <div class="io-tags"><span class="io-tag">code</span><span class="io-tag">code_iteration</span></div>
+            </div>
+          </div>
+          <h4>Tools available</h4>
+          <p><strong>TavilySearch</strong> — real-time web search. Triggered automatically when the coder needs to look up an API, library method, or implementation pattern. Max 3 calls per coding iteration.</p>
+          <h4>Code extraction</h4>
+          <p>Code is extracted from the LLM's response using regex to find fenced code blocks (<code>```python ... ```</code>). If no fence is found, the full response is used as-is.</p>
+        </div>
+      </div>
+
+      <h3 id="reviewer">4. Reviewer</h3>
+      <div class="agent-card">
+        <div class="agent-header">
+          <span class="agent-num">04</span>
+          <span class="agent-name" style="color:var(--purple)">REVIEWER</span>
+          <span class="agent-badge" style="border-color:var(--purple);color:var(--purple)">agents/reviewer.py</span>
+        </div>
+        <div class="agent-body">
+          <p>Scores code on five criteria and decides whether to approve or send back to the Coder. The routing logic in <code>graph/workflow.py</code> reads <code>review_approved</code> and either advances to Executor or loops back to Coder.</p>
+          <div class="io-grid">
+            <div class="io-box">
+              <div class="io-label">Reads from state</div>
+              <div class="io-tags"><span class="io-tag">task</span><span class="io-tag">language</span><span class="io-tag">code</span><span class="io-tag">code_iteration</span></div>
+            </div>
+            <div class="io-box">
+              <div class="io-label">Writes to state</div>
+              <div class="io-tags"><span class="io-tag">review_approved</span><span class="io-tag">review_feedback</span></div>
+            </div>
+          </div>
+          <h4>Scoring criteria</h4>
+          <div class="table-wrap">
+            <table>
+              <tr><th>#</th><th>Criterion</th><th>What it checks</th></tr>
+              <tr><td>1</td><td>Correctness</td><td>Does it actually solve the task?</td></tr>
+              <tr><td>2</td><td>Completeness</td><td>Is it runnable right now without modifications?</td></tr>
+              <tr><td>3</td><td>Code Quality</td><td>Is it clean and idiomatic for the language?</td></tr>
+              <tr><td>4</td><td>Error Handling</td><td>Are edge cases and invalid inputs handled?</td></tr>
+              <tr><td>5</td><td>Security</td><td>No obvious vulnerabilities (injection, unsafe eval, etc.)?</td></tr>
+            </table>
+          </div>
+          <p><strong>Approval rule:</strong> score ≥ 7 AND no critical issues → <code>approved: true</code>. Below threshold → returns to Coder with specific feedback. After <code>MAX_CODE_ITERATIONS</code> rounds, forces approval regardless of score.</p>
+          <h4>JSON response format</h4>
+          <pre><code>{
+  <span class="st">"approved"</span>: <span class="kw">true</span>,
+  <span class="st">"score"</span>: 9,
+  <span class="st">"issues"</span>: [],
+  <span class="st">"summary"</span>: <span class="st">"Clean BST implementation, all edge cases handled"</span>
+}</code></pre>
+        </div>
+      </div>
+
+      <h3 id="executor">5. Executor</h3>
+      <div class="agent-card">
+        <div class="agent-header">
+          <span class="agent-num">05</span>
+          <span class="agent-name">EXECUTOR</span>
+          <span class="agent-badge" style="border-color:var(--border2);color:var(--muted)">agents/executor.py</span>
+        </div>
+        <div class="agent-body">
+          <p>Runs the approved code in an isolated subprocess. Writes code to a temp file, executes with <code>sys.executable</code>, and captures stdout/stderr.</p>
+          <div class="io-grid">
+            <div class="io-box">
+              <div class="io-label">Reads from state</div>
+              <div class="io-tags"><span class="io-tag">code</span><span class="io-tag">language</span></div>
+            </div>
+            <div class="io-box">
+              <div class="io-label">Writes to state</div>
+              <div class="io-tags"><span class="io-tag">execution_output</span><span class="io-tag">execution_success</span><span class="io-tag">final_code</span></div>
+            </div>
+          </div>
+          <h4>Language handling</h4>
+          <div class="table-wrap">
+            <table>
+              <tr><th>Language</th><th>Action</th></tr>
+              <tr><td>Python</td><td>Write to <code>/tmp/*.py</code>, run via <code>subprocess.run([sys.executable, tmp])</code></td></tr>
+              <tr><td>JavaScript / TypeScript</td><td>Marks <code>execution_success=True</code> with note — no runtime available</td></tr>
+              <tr><td>Java / Go / Rust / other</td><td>Same — marks success, skips execution</td></tr>
+            </table>
+          </div>
+          <p>The 30-second timeout is a hard kill via <code>subprocess.run(..., timeout=30)</code>. Timeouts are caught and returned as an error to the Debugger.</p>
+        </div>
+      </div>
+
+      <h3 id="debugger">6. Debugger</h3>
+      <div class="agent-card">
+        <div class="agent-header">
+          <span class="agent-num">06</span>
+          <span class="agent-name" style="color:var(--muted)">DEBUGGER</span>
+          <span class="agent-badge" style="border-color:var(--border2);color:var(--muted)">agents/debugger.py</span>
+        </div>
+        <div class="agent-body">
+          <p>Receives the failed code and full error traceback. Diagnoses the root cause (not just the symptom) and returns a complete fixed version. Increments <code>debug_attempts</code> — when it reaches <code>MAX_DEBUG_ATTEMPTS</code>, the workflow ends.</p>
+          <div class="io-grid">
+            <div class="io-box">
+              <div class="io-label">Reads from state</div>
+              <div class="io-tags"><span class="io-tag">task</span><span class="io-tag">language</span><span class="io-tag">code</span><span class="io-tag">execution_output</span><span class="io-tag">debug_attempts</span></div>
+            </div>
+            <div class="io-box">
+              <div class="io-label">Writes to state</div>
+              <div class="io-tags"><span class="io-tag">code (fixed)</span><span class="io-tag">debug_notes</span><span class="io-tag">debug_attempts</span></div>
+            </div>
+          </div>
+          <h4>Response format</h4>
+          <pre><code>DIAGNOSIS: IndentationError on line 14 — mixed tabs and spaces
+
+```python
+<span class="cm"># complete fixed code here</span>
+```</code></pre>
+        </div>
+      </div>
+
+      <!-- STATE -->
+      <h2 id="state">Shared State</h2>
+      <p>All agents communicate through a single <code>AgentState</code> TypedDict defined in <code>state/schema.py</code>. LangGraph passes this state through the graph — each agent receives the full object and returns only the fields it modifies.</p>
+      <pre><code><span class="kw">class</span> <span class="fn">AgentState</span>(TypedDict):
+    task: str                    <span class="cm"># raw task → summarized by Orchestrator</span>
+    plan: str                    <span class="cm"># implementation plan from Planner</span>
+    language: str                <span class="cm"># detected language (e.g. "python")</span>
+    code: str                    <span class="cm"># current code from Coder/Debugger</span>
+    code_iteration: int          <span class="cm"># how many times Coder has run</span>
+    review_feedback: str         <span class="cm"># Reviewer's rejection reason</span>
+    review_approved: bool        <span class="cm"># True = proceed to Executor</span>
+    execution_output: str        <span class="cm"># stdout/stderr from subprocess</span>
+    execution_success: bool      <span class="cm"># True = code ran without error</span>
+    debug_attempts: int          <span class="cm"># how many Debugger cycles ran</span>
+    debug_notes: str             <span class="cm"># Debugger's diagnosis</span>
+    current_agent: str           <span class="cm"># name of the currently active agent</span>
+    agent_log: List[str]         <span class="cm"># chronological activity log</span>
+    final_code: str              <span class="cm"># confirmed working code (set by Executor)</span>
+    final_explanation: str       <span class="cm"># human-readable explanation</span>
+    messages: Annotated[List, add_messages]  <span class="cm"># LangChain message history</span></code></pre>
+
+      <!-- ROUTING -->
+      <h2 id="routing">Routing Logic</h2>
+      <p>Two conditional edges drive the feedback loops in <code>graph/workflow.py</code>:</p>
+
+      <h3>After Reviewer</h3>
+      <pre><code><span class="kw">def</span> <span class="fn">_route_after_review</span>(state: AgentState) -> str:
+    <span class="kw">if</span> state[<span class="st">"review_approved"</span>] <span class="kw">or</span> state[<span class="st">"code_iteration"</span>] >= MAX_CODE_ITERATIONS:
+        <span class="kw">return</span> <span class="st">"executor"</span>    <span class="cm"># approved, or max loops hit</span>
+    <span class="kw">return</span> <span class="st">"coder"</span>            <span class="cm"># send back for rework</span></code></pre>
+
+      <h3>After Executor</h3>
+      <pre><code><span class="kw">def</span> <span class="fn">_route_after_execution</span>(state: AgentState) -> str:
+    <span class="kw">if</span> state[<span class="st">"execution_success"</span>] <span class="kw">or</span> state[<span class="st">"debug_attempts"</span>] >= MAX_DEBUG_ATTEMPTS:
+        <span class="kw">return</span> END             <span class="cm"># success, or max debug attempts</span>
+    <span class="kw">return</span> <span class="st">"debugger"</span>         <span class="cm"># execution failed — debug it</span></code></pre>
+
+      <!-- TOOLS -->
+      <h2 id="tools">Tools</h2>
+      <h3>TavilySearch — <code>tools/search.py</code></h3>
+      <pre><code><span class="kw">from</span> langchain_tavily <span class="kw">import</span> TavilySearch
+
+<span class="kw">def</span> <span class="fn">get_search_tool</span>():
+    <span class="kw">return</span> TavilySearch(max_results=<span class="nb">3</span>)</code></pre>
+      <p>The Coder agent binds this tool with <code>llm.bind_tools([search_tool])</code>. The LLM decides autonomously whether to call it.</p>
+
+      <h3>execute_python_code — <code>tools/repl.py</code></h3>
+      <pre><code><span class="kw">def</span> <span class="fn">execute_python_code</span>(code: str, timeout: int = <span class="nb">30</span>) -> tuple[bool, str]:
+    <span class="cm"># writes to tempfile, runs subprocess, returns (success, output)</span></code></pre>
+      <p>Returns <code>(True, stdout)</code> on success, <code>(False, error_message)</code> on failure or timeout. The temp file is always cleaned up.</p>
+
+      <!-- LANGSMITH -->
+      <h2 id="langsmith">LangSmith Integration</h2>
+      <p>LangSmith traces every LLM call in the pipeline automatically when enabled. No code changes required — tracing is controlled entirely by environment variables.</p>
+
+      <h3>Enable tracing</h3>
+      <pre><code><span class="cm"># In .env</span>
+LANGSMITH_API_KEY=lsv2_pt_...    <span class="cm"># personal token, not service key</span>
+LANGSMITH_TRACING=true
+LANGSMITH_PROJECT=CODEFORGE</code></pre>
+
+      <h3>What gets traced</h3>
+      <ul>
+        <li>Every agent's LLM call (prompt + response)</li>
+        <li>Token counts (input / output / total)</li>
+        <li>Latency per call</li>
+        <li>Tool calls (Tavily search queries + results)</li>
+        <li>Run metadata (agent name, iteration count)</li>
+      </ul>
+
+      <div class="callout info">
+        <div class="callout-title">View at smith.langchain.com</div>
+        <p>Open <strong>smith.langchain.com</strong> → Projects → <strong>CODEFORGE</strong>. Each full pipeline run appears as a top-level trace with nested agent spans.</p>
+      </div>
+
+      <!-- FLOWISE -->
+      <h2 id="flowise">Flowise Integration</h2>
+      <p>CODEFORGE ships with a script that automatically creates and deploys a visual agent canvas in Flowise Cloud.</p>
+
+      <h3>Deploy</h3>
+      <pre><code><span class="cm"># Set FLOWISE_API_KEY in .env, then:</span>
+python3 flowise/create_flow.py</code></pre>
+      <p>The script creates a CHATFLOW with three nodes — ChatGroq → BufferMemory → CODEFORGE Agent — with real edge connections and the Groq API key pre-embedded. It prints the canvas URL when done.</p>
+
+      <h3>Canvas structure</h3>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Node</th><th>Type</th><th>Role</th></tr>
+          <tr><td>ChatGroq</td><td>Chat Model</td><td>Llama 3.3 70B via Groq</td></tr>
+          <tr><td>BufferMemory</td><td>Memory</td><td>Conversation history</td></tr>
+          <tr><td>CODEFORGE Agent</td><td>Tool Agent</td><td>5-step code generation with system prompt</td></tr>
+        </table>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-title">Flowise Cloud credential API is restricted</div>
+        <p>Flowise Cloud returns 403 when creating credentials via API. The script embeds the Groq key directly in the node's <code>inputs</code> dict as a workaround. This is fine for personal use — for production, add the credential via the Flowise UI.</p>
+      </div>
+
+      <!-- TESTING -->
+      <h2 id="testing">Test Suite</h2>
+      <pre><code>python3 tests/test_suite.py</code></pre>
+
+      <div class="table-wrap">
+        <table>
+          <tr><th>Category</th><th>Tests</th><th>What they cover</th></tr>
+          <tr>
+            <td>Configuration</td><td>1</td>
+            <td>All env vars loaded, keys present and non-empty</td>
+          </tr>
+          <tr>
+            <td>API Connectivity</td><td>5</td>
+            <td>Groq responds with correct model, token counting works, Tavily returns results, LangSmith project exists, runs can be created/closed</td>
+          </tr>
+          <tr>
+            <td>Core Tools</td><td>3</td>
+            <td>Python code executes correctly, runtime errors are caught, 30s timeout is enforced</td>
+          </tr>
+          <tr>
+            <td>Individual Agents</td><td>6</td>
+            <td>Orchestrator detects Python + JavaScript, Planner produces plan &gt;100 chars, Coder generates code, Reviewer approves good code and rejects incomplete code</td>
+          </tr>
+          <tr>
+            <td>Full Pipeline</td><td>5</td>
+            <td>Factorial (simple), stack (data structure), bubble sort (algorithm + execution output), JS deep clone (non-Python), doubly linked list (triggers review loop)</td>
+          </tr>
+          <tr>
+            <td><strong>Total</strong></td><td><strong>20</strong></td>
+            <td><strong>100% passing</strong></td>
+          </tr>
+        </table>
+      </div>
+
+      <h3 id="adding-tests">Adding tests</h3>
+      <pre><code><span class="kw">def</span> <span class="fn">test_my_feature</span>():
+    result = my_function()
+    assert result == expected, <span class="nb">f</span><span class="st">"Got {result}"</span>
+    <span class="kw">return</span> <span class="st">"Descriptive success message"</span>
+
+<span class="cm"># Register in main():</span>
+suite.<span class="fn">run</span>(<span class="st">"Category"</span>, <span class="st">"My feature"</span>, test_my_feature)</code></pre>
+
+      <!-- FILE STRUCTURE -->
+      <h2 id="project-structure">File Structure</h2>
+      <pre><code>CODEFORGE/
+├── main.py                 <span class="cm">← entry point, run this</span>
+├── requirements.txt        <span class="cm">← pip dependencies</span>
+├── .env.example            <span class="cm">← copy to .env, fill in keys</span>
+├── LICENSE                 <span class="cm">← MIT</span>
+├── CONTRIBUTING.md
+│
+├── state/
+│   └── schema.py           <span class="cm">← AgentState TypedDict</span>
+│
+├── config/
+│   ├── settings.py         <span class="cm">← env loader, LangSmith setup</span>
+│   └── llm.py              <span class="cm">← ChatGroq(model, max_retries=3)</span>
+│
+├── agents/
+│   ├── orchestrator.py     <span class="cm">← Agent 1: language detection</span>
+│   ├── planner.py          <span class="cm">← Agent 2: implementation plan</span>
+│   ├── coder.py            <span class="cm">← Agent 3: code generation + Tavily</span>
+│   ├── reviewer.py         <span class="cm">← Agent 4: quality scoring</span>
+│   ├── executor.py         <span class="cm">← Agent 5: subprocess runner</span>
+│   └── debugger.py         <span class="cm">← Agent 6: error diagnosis</span>
+│
+├── tools/
+│   ├── search.py           <span class="cm">← TavilySearch wrapper</span>
+│   └── repl.py             <span class="cm">← execute_python_code()</span>
+│
+├── graph/
+│   └── workflow.py         <span class="cm">← StateGraph, routing functions</span>
+│
+├── flowise/
+│   └── create_flow.py      <span class="cm">← Flowise CHATFLOW builder</span>
+│
+├── tests/
+│   └── test_suite.py       <span class="cm">← 20 tests, Rich report</span>
+│
+└── docs/                   <span class="cm">← GitHub Pages (auto-deploys)</span>
+    ├── index.html          <span class="cm">← landing page</span>
+    └── docs.html           <span class="cm">← this file</span></code></pre>
+
+      <!-- FAQ -->
+      <h2 id="faq">FAQ</h2>
+
+      <h3>Which Groq models can I use?</h3>
+      <p>Any model supported by Groq and accessible via <code>langchain-groq</code>. The default is <code>llama-3.3-70b-versatile</code>. Change it with <code>MODEL_NAME</code> in <code>.env</code>. Other tested options: <code>llama3-8b-8192</code> (faster, lower quality), <code>mixtral-8x7b-32768</code>.</p>
+
+      <h3>Why subprocess for code execution instead of exec() or PythonREPL?</h3>
+      <p>Subprocess runs in a completely separate Python process, so a crash, infinite loop, or malicious code cannot affect the main CODEFORGE process. <code>exec()</code> shares the same process memory and namespace. <code>PythonREPLTool</code> from LangChain is a thin wrapper around <code>exec()</code>.</p>
+
+      <h3>Does it work with non-Python languages?</h3>
+      <p>Yes — Orchestrator detects the language and Coder writes idiomatic code for it. Execution is Python-only (subprocess). JavaScript, TypeScript, Go, Rust, Java, C++, and others get full generation + review, then <code>execution_success</code> is set to <code>True</code> with a note that execution was skipped.</p>
+
+      <h3>What happens if Groq rate-limits me?</h3>
+      <p>The <code>ChatGroq</code> instance is configured with <code>max_retries=3</code> and automatic exponential backoff. Heavy consecutive pipeline runs (5+ in a row) can exhaust the free 12,000 TPM limit. Wait 60 seconds and retry.</p>
+
+      <h3>Can I use a different LLM provider?</h3>
+      <p>Yes. Change <code>config/llm.py</code> to return any <code>BaseChatModel</code>-compatible object (ChatOpenAI, ChatAnthropic, ChatGoogleGenerativeAI, etc.). All agents use the model via the same interface.</p>
+
+    </div><!-- /content -->
+  </main>
+</div>
+
+<footer>
+  <span>CODEFORGE — built by <a href="https://github.com/vignesh2027">vignesh2027</a></span>
+  <span style="font-family:'JetBrains Mono',monospace;font-size:11px;">20/20 tests passing · MIT license</span>
+</footer>
+
+<script>
+  // Highlight active sidebar link on scroll
+  const sections = document.querySelectorAll('section[id], h2[id], h3[id]');
+  const links = document.querySelectorAll('.sidebar a');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+        if (a) a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+  sections.forEach(s => obs.observe(s));
+</script>
+
+</body>
+</html>
