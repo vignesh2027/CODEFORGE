@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
 """
-Creates the CODEFORGE multi-agent pipeline inside Flowise Cloud.
+Creates the CODEFORGE agent in Flowise Cloud as a proper CHATFLOW.
+Nodes are connected with real edges — no template strings.
 Run: python3 flowise/create_flow.py
 """
 import json, sys, os, requests
+from dotenv import load_dotenv
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Load .env from the project root (one level up from flowise/)
+_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(_root, ".env"))
+
+GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY", "")
 
 FLOWISE_URL = "https://cloud.flowiseai.com"
 FLOWISE_KEY = "BkV4qapsZW6FUoVHdASgmcyEeaRyUy9XkFYqYjKFQ8U"
@@ -22,299 +29,285 @@ def api(method, path, body=None):
     return r.json()
 
 
-def delete_existing(name):
+def delete_all_codeforge():
     flows = api("GET", "/api/v1/chatflows")
     for f in flows:
-        if f.get("name") == name:
+        if "CODEFORGE" in f.get("name", ""):
             try:
                 api("DELETE", f"/api/v1/chatflows/{f['id']}")
-                print(f"  Deleted old flow: {f['id']}")
+                print(f"  Deleted: {f['name']}")
             except Exception:
                 pass
 
 
-# ── Node builder helpers ───────────────────────────────────────────────────────
+CODEFORGE_SYSTEM_PROMPT = """You are CODEFORGE — an expert AI code generation system.
 
-def agentflow_node(node_id, node_type, label, x, y, inputs=None, outputs=None):
-    return {
-        "id": node_id,
-        "position": {"x": x, "y": y},
-        "type": "agentFlow",
+When the user gives you a coding task, follow this exact pipeline:
+
+**STEP 1 — ANALYZE**
+Identify the programming language (default Python). State: "Language: [LANG]"
+
+**STEP 2 — PLAN**
+Create a numbered step-by-step implementation plan. Cover:
+- Required functions and classes
+- Libraries needed
+- Error handling and edge cases
+
+**STEP 3 — CODE**
+Write COMPLETE, production-quality code. Rules:
+- No pseudocode, no placeholders
+- Full error handling included
+- Wrap in ```language code block
+- Use web search (Tavily) if you need to look up APIs or libraries
+
+**STEP 4 — REVIEW**
+Self-review your code:
+- Correctness: does it solve the task?
+- Completeness: is it runnable right now?
+- Quality: clean and idiomatic?
+Score it 1-10. If score < 7, rewrite before showing.
+
+**STEP 5 — EXPLAIN**
+After the code, briefly explain:
+- What it does
+- How to run it
+- Expected output
+
+Always produce working, tested code. Use Tavily search when you need current documentation."""
+
+
+def build_chatflow():
+    """
+    Proper Flowise CHATFLOW with real node-to-node edge connections.
+
+    Layout:
+      [ChatGroq]  [TavilySearch]
+          ↘           ↙
+           [Tool Agent]
+    """
+
+    # ── Node: ChatGroq ─────────────────────────────────────────────────────
+    groq_node = {
+        "id": "groqChat_0",
+        "position": {"x": 200, "y": 100},
+        "type": "customNode",
         "data": {
-            "id": node_id,
-            "label": label,
-            "name": node_type,
-            "version": 1,
-            "type": "agentFlow",
-            "category": "Agent Flows",
-            "baseClasses": ["AgentFlow"],
-            "inputs": inputs or {},
-            "outputs": outputs or {"output": f"{node_id}-output-0"},
+            "id": "groqChat_0",
+            "label": "ChatGroq",
+            "name": "groqChat",
+            "version": 6,
+            "type": "ChatGroq",
+            "category": "Chat Models",
+            "description": "Wrapper around Groq API with tool calling support",
+            "baseClasses": ["GroqChat", "BaseChatModel", "BaseLanguageModel", "Runnable"],
+            "inputs": {
+                "modelName": "llama-3.3-70b-versatile",
+                "temperature": 0.1,
+                "streaming": True,
+                "maxTokens": 4096,
+            },
+            "inputParams": [
+                {"label": "Model Name",  "name": "modelName", "type": "asyncOptions",
+                 "loadMethod": "listModels", "default": "llama3-8b-8192"},
+                {"label": "Temperature", "name": "temperature", "type": "number", "default": 0.9},
+                {"label": "Max Tokens",  "name": "maxTokens", "type": "number", "optional": True},
+                {"label": "Streaming",   "name": "streaming", "type": "boolean", "default": True},
+            ],
+            "inputAnchors": [
+                {"label": "Cache", "name": "cache", "type": "BaseCache", "optional": True, "id": "groqChat_0-input-cache-BaseCache"}
+            ],
+            "outputAnchors": [
+                {
+                    "name": "output",
+                    "label": "ChatGroq",
+                    "type": "options",
+                    "options": [
+                        {"id": "groqChat_0-output-ChatGroq-GroqChat-BaseChatModel-BaseLanguageModel-Runnable",
+                         "name": "output", "label": "ChatGroq",
+                         "description": "Generated output from model",
+                         "type": "GroqChat | BaseChatModel | BaseLanguageModel | Runnable"}
+                    ],
+                    "default": "groqChat_0-output-ChatGroq-GroqChat-BaseChatModel-BaseLanguageModel-Runnable"
+                }
+            ],
+            "outputs": {},
             "selected": False,
         },
-        "width": 210,
-        "height": 110,
-        "selected": False,
-        "dragging": False,
+        "width": 300, "height": 380, "selected": False,
     }
 
-
-def custom_node(node_id, node_type, label, category, x, y, inputs=None, outputs=None, credential=None):
-    data = {
-        "id": node_id,
-        "label": label,
-        "name": node_type,
-        "version": 1,
-        "type": node_type,
-        "category": category,
-        "baseClasses": [node_type, "BaseChatModel", "BaseLanguageModel"],
-        "inputs": inputs or {},
-        "outputs": outputs or {},
-        "selected": False,
-    }
-    if credential:
-        data["credential"] = credential
-    return {
-        "id": node_id,
-        "position": {"x": x, "y": y},
+    # ── Node: Tavily Search ────────────────────────────────────────────────
+    tavily_node = {
+        "id": "tavilyAPI_0",
+        "position": {"x": 600, "y": 100},
         "type": "customNode",
-        "data": data,
-        "width": 210,
-        "height": 110,
-        "selected": False,
+        "data": {
+            "id": "tavilyAPI_0",
+            "label": "Tavily Search",
+            "name": "tavilyAPI",
+            "version": 1,
+            "type": "TavilyAPI",
+            "category": "Tools",
+            "description": "Real-time web search via Tavily API",
+            "baseClasses": ["TavilyAPI", "StructuredTool", "BaseTool", "Runnable"],
+            "inputs": {
+                "maxResults": 5,
+                "searchDepth": "basic",
+                "topic": "general",
+                "includeAnswer": False,
+            },
+            "inputParams": [
+                {"label": "Max Results",   "name": "maxResults",   "type": "number",  "default": 5},
+                {"label": "Search Depth",  "name": "searchDepth",  "type": "options",
+                 "options": [{"label": "Basic", "name": "basic"}, {"label": "Advanced", "name": "advanced"}],
+                 "default": "basic"},
+                {"label": "Topic",         "name": "topic",         "type": "options",
+                 "options": [{"label": "General", "name": "general"}, {"label": "News", "name": "news"}],
+                 "default": "general"},
+            ],
+            "inputAnchors": [],
+            "outputAnchors": [
+                {
+                    "name": "output",
+                    "label": "TavilyAPI",
+                    "type": "options",
+                    "options": [
+                        {"id": "tavilyAPI_0-output-TavilyAPI-TavilyAPI-StructuredTool-BaseTool-Runnable",
+                         "name": "output", "label": "TavilyAPI",
+                         "type": "TavilyAPI | StructuredTool | BaseTool | Runnable"}
+                    ],
+                    "default": "tavilyAPI_0-output-TavilyAPI-TavilyAPI-StructuredTool-BaseTool-Runnable"
+                }
+            ],
+            "outputs": {},
+            "selected": False,
+        },
+        "width": 300, "height": 380, "selected": False,
     }
 
-
-def edge(eid, src, tgt, src_handle=None, tgt_handle=None):
-    return {
-        "id": eid,
-        "source": src,
-        "target": tgt,
-        "sourceHandle": src_handle or f"{src}-output-0",
-        "targetHandle": tgt_handle or f"{tgt}-input-0",
-        "type": "buttonedge",
-        "animated": True,
-        "selected": False,
+    # ── Node: Tool Agent ───────────────────────────────────────────────────
+    agent_node = {
+        "id": "toolAgent_0",
+        "position": {"x": 400, "y": 600},
+        "type": "customNode",
+        "data": {
+            "id": "toolAgent_0",
+            "label": "CODEFORGE Agent",
+            "name": "toolAgent",
+            "version": 2,
+            "type": "AgentExecutor",
+            "category": "Agents",
+            "description": "CODEFORGE multi-step code generation agent",
+            "baseClasses": ["AgentExecutor", "BaseChain", "Runnable"],
+            "inputs": {
+                "model": "{{groqChat_0.data.instance}}",
+                "tools": ["{{tavilyAPI_0.data.instance}}"],
+                "systemMessage": CODEFORGE_SYSTEM_PROMPT,
+                "maxIterations": 10,
+                "enableDetailedStreaming": False,
+            },
+            "inputParams": [
+                {"label": "System Message", "name": "systemMessage", "type": "string",
+                 "rows": 4, "optional": True,
+                 "additionalParams": True, "default": ""},
+                {"label": "Max Iterations", "name": "maxIterations", "type": "number",
+                 "optional": True, "additionalParams": True, "default": 10},
+            ],
+            "inputAnchors": [
+                {"label": "Tools",      "name": "tools",  "type": "Tool",         "list": True,
+                 "id": "toolAgent_0-input-tools-Tool"},
+                {"label": "Memory",     "name": "memory", "type": "BaseChatMemory","optional": True,
+                 "id": "toolAgent_0-input-memory-BaseChatMemory"},
+                {"label": "Chat Model", "name": "model",  "type": "BaseChatModel",
+                 "id": "toolAgent_0-input-model-BaseChatModel"},
+                {"label": "Chat Prompt Template", "name": "chatPromptTemplate",
+                 "type": "ChatPromptTemplate", "optional": True,
+                 "id": "toolAgent_0-input-chatPromptTemplate-ChatPromptTemplate"},
+            ],
+            "outputAnchors": [
+                {"id": "toolAgent_0-output-toolAgent-AgentExecutor-BaseChain-Runnable",
+                 "name": "output", "label": "AgentExecutor",
+                 "type": "AgentExecutor | BaseChain | Runnable"}
+            ],
+            "outputs": {},
+            "selected": False,
+        },
+        "width": 300, "height": 430, "selected": False,
     }
 
-
-# ── System prompts ─────────────────────────────────────────────────────────────
-
-ORCHESTRATOR_PROMPT = """You are the 🎯 ORCHESTRATOR Agent in CODEFORGE — a multi-agent code generation system.
-
-Analyze the user's coding task:
-1. Identify the programming language (default: Python if not mentioned)
-2. Summarize what needs to be built clearly and concisely
-3. Identify key requirements
-
-Reply with: [LANGUAGE: python] followed by a clear task summary."""
-
-PLANNER_PROMPT = """You are the 📋 PLANNER Agent in CODEFORGE.
-
-Create a numbered step-by-step implementation plan for the coding task.
-Cover: required functions/classes, libraries, error handling, edge cases.
-Be specific and actionable."""
-
-CODER_PROMPT = """You are the 💻 CODER Agent in CODEFORGE — an expert software engineer.
-
-Write COMPLETE, production-quality code based on the conversation context.
-Rules:
-- No pseudocode or placeholders — fully runnable
-- Include proper error handling
-- Follow language best practices
-- Wrap code in ```language blocks
-
-Return ONLY the code block, no extra explanation."""
-
-REVIEWER_PROMPT = """You are the 🔍 REVIEWER Agent in CODEFORGE.
-
-Review the code for: correctness, completeness, quality (1-10), error handling, security.
-
-Respond in JSON:
-{"approved": true/false, "score": 8, "issues": [], "summary": "..."}
-
-Approve (true) only if score >= 7 and no critical issues."""
-
-EXECUTOR_PROMPT = """You are the ⚡ EXECUTOR Agent in CODEFORGE.
-
-The code has been reviewed and approved. Your job:
-1. Confirm the code is ready to run
-2. Describe what the code does and its expected output
-3. List any setup steps needed (pip installs, etc.)
-4. Provide a sample run command
-
-Present the final working code clearly."""
-
-
-def build_flow():
-    """Build a complete CODEFORGE 6-agent Flowise agentflow."""
-
-    # ── Groq Chat Model (shared by all LLM agents) ─────────────────────────
-    groq_node = custom_node(
-        "groqChat_0", "groqChat", "⚡ ChatGroq — Llama 3.3 70B",
-        "Chat Models", 700, 700,
-        inputs={
-            "modelName": "llama-3.3-70b-versatile",
-            "temperature": 0.1,
-            "streaming": True,
-            "maxTokens": 4096,
-        },
-        outputs={"output": "groqChat_0-output-ChatGroq-BaseLanguageModel"},
-    )
-
-    # ── Tavily Search Tool ──────────────────────────────────────────────────
-    tavily_node = custom_node(
-        "tavily_0", "tavilyAPI", "🔎 Tavily Search",
-        "Tools", 900, 700,
-        inputs={
-            "maxResults": 5,
-            "searchDepth": "basic",
-            "topic": "general",
-        },
-        outputs={"output": "tavily_0-output-TavilySearch-Tool"},
-    )
-
-    # ── Agent Flow Nodes ────────────────────────────────────────────────────
-    start = agentflow_node("start_0", "startAgentflow", "▶ START", 80, 340,
-        inputs={"startInputType": "chatInput"},
-        outputs={"output": "start_0-output-0"})
-
-    orchestrator = agentflow_node("orchestrator_0", "llmAgentflow", "🎯 ORCHESTRATOR", 360, 340,
-        inputs={
-            "llmModel": "{{groqChat_0.data.instance}}",
-            "llmMessages": [{"role": "system", "content": ORCHESTRATOR_PROMPT}],
-            "llmReturnResponseAs": "userMessage",
-            "llmEnableMemory": True,
-            "llmMemoryType": "allMessages",
-        })
-
-    planner = agentflow_node("planner_0", "llmAgentflow", "📋 PLANNER", 640, 340,
-        inputs={
-            "llmModel": "{{groqChat_0.data.instance}}",
-            "llmMessages": [{"role": "system", "content": PLANNER_PROMPT}],
-            "llmReturnResponseAs": "userMessage",
-            "llmEnableMemory": True,
-            "llmMemoryType": "allMessages",
-        })
-
-    coder = agentflow_node("coder_0", "llmAgentflow", "💻 CODER", 920, 340,
-        inputs={
-            "llmModel": "{{groqChat_0.data.instance}}",
-            "llmMessages": [{"role": "system", "content": CODER_PROMPT}],
-            "llmReturnResponseAs": "userMessage",
-            "llmEnableMemory": True,
-            "llmMemoryType": "allMessages",
-        })
-
-    reviewer = agentflow_node("reviewer_0", "llmAgentflow", "🔍 REVIEWER", 1200, 340,
-        inputs={
-            "llmModel": "{{groqChat_0.data.instance}}",
-            "llmMessages": [{"role": "system", "content": REVIEWER_PROMPT}],
-            "llmReturnResponseAs": "userMessage",
-            "llmEnableMemory": True,
-            "llmMemoryType": "allMessages",
-        })
-
-    condition = agentflow_node("condition_0", "conditionAgentflow", "❓ APPROVED?", 1480, 340,
-        inputs={
-            "conditions": [{"type": "string", "value1": "{{reviewer_0.output}}",
-                           "operation": "contains", "value2": "true"}]
-        },
-        outputs={"true": "condition_0-output-true", "false": "condition_0-output-false"})
-
-    executor = agentflow_node("executor_0", "llmAgentflow", "⚡ EXECUTOR", 1760, 200,
-        inputs={
-            "llmModel": "{{groqChat_0.data.instance}}",
-            "llmMessages": [{"role": "system", "content": EXECUTOR_PROMPT}],
-            "llmReturnResponseAs": "userMessage",
-            "llmEnableMemory": True,
-            "llmMemoryType": "allMessages",
-        })
-
-    debugger = agentflow_node("debugger_0", "llmAgentflow", "🐛 DEBUGGER", 1760, 500,
-        inputs={
-            "llmModel": "{{groqChat_0.data.instance}}",
-            "llmMessages": [{"role": "system", "content": (
-                "You are the 🐛 DEBUGGER Agent in CODEFORGE. "
-                "The code was rejected by the reviewer. "
-                "Analyze the review feedback and fix ALL issues. "
-                "Return the complete corrected code in a ```language block."
-            )}],
-            "llmReturnResponseAs": "userMessage",
-            "llmEnableMemory": True,
-            "llmMemoryType": "allMessages",
-        })
-
-    end_success = agentflow_node("end_success_0", "directReplyAgentflow", "✅ DONE", 2040, 200,
-        inputs={}, outputs={"output": "end_success_0-output-0"})
-
-    nodes = [start, orchestrator, planner, coder, reviewer,
-             condition, executor, debugger, end_success, groq_node, tavily_node]
-
+    # ── Edges: real node-to-node connections ────────────────────────────────
     edges = [
-        edge("e1", "start_0",       "orchestrator_0"),
-        edge("e2", "orchestrator_0", "planner_0"),
-        edge("e3", "planner_0",     "coder_0"),
-        edge("e4", "coder_0",       "reviewer_0"),
-        edge("e5", "reviewer_0",    "condition_0"),
-        edge("e6-yes", "condition_0", "executor_0",
-             "condition_0-output-true", "executor_0-input-0"),
-        edge("e6-no",  "condition_0", "debugger_0",
-             "condition_0-output-false", "debugger_0-input-0"),
-        edge("e7", "executor_0",    "end_success_0"),
-        edge("e8", "debugger_0",    "coder_0",
-             "debugger_0-output-0", "coder_0-input-0"),
+        {
+            "id": "e-groq-agent",
+            "source": "groqChat_0",
+            "target": "toolAgent_0",
+            "sourceHandle": "groqChat_0-output-ChatGroq-GroqChat-BaseChatModel-BaseLanguageModel-Runnable",
+            "targetHandle": "toolAgent_0-input-model-BaseChatModel",
+            "type": "buttonedge",
+            "animated": True,
+        },
+        {
+            "id": "e-tavily-agent",
+            "source": "tavilyAPI_0",
+            "target": "toolAgent_0",
+            "sourceHandle": "tavilyAPI_0-output-TavilyAPI-TavilyAPI-StructuredTool-BaseTool-Runnable",
+            "targetHandle": "toolAgent_0-input-tools-Tool",
+            "type": "buttonedge",
+            "animated": True,
+        },
     ]
 
     return json.dumps({
-        "nodes": nodes,
+        "nodes": [groq_node, tavily_node, agent_node],
         "edges": edges,
-        "viewport": {"x": 40, "y": 80, "zoom": 0.6},
+        "viewport": {"x": 80, "y": 40, "zoom": 0.9},
     })
 
 
 def main():
-    print("\n╔══════════════════════════════════════╗")
-    print("║  CODEFORGE → Flowise Cloud Setup     ║")
-    print("╚══════════════════════════════════════╝\n")
+    print("\n╔════════════════════════════════════════╗")
+    print("║  CODEFORGE → Flowise  (Proper Build)  ║")
+    print("╚════════════════════════════════════════╝\n")
 
-    print("Removing old CODEFORGE flows...")
-    delete_existing("CODEFORGE — Multi-Agent Pipeline")
+    print("Removing all old CODEFORGE flows...")
+    delete_all_codeforge()
 
-    print("Building agentflow JSON...")
-    flow_data = build_flow()
-
-    print("Creating flow in Flowise Cloud...")
+    print("Creating proper CHATFLOW with real edge connections...")
+    flow_data = build_chatflow()
     result = api("POST", "/api/v1/chatflows", {
-        "name": "CODEFORGE — Multi-Agent Pipeline",
+        "name": "CODEFORGE — Code Generation Agent",
         "flowData": flow_data,
         "deployed": True,
-        "type": "MULTIAGENT",
+        "type": "CHATFLOW",
         "category": "Code Generation",
     })
 
     flow_id = result["id"]
-    print(f"\n✅ Flow Created Successfully!")
-    print(f"   Flow ID : {flow_id}")
-    print(f"   Name    : {result['name']}")
-    print(f"   Status  : Deployed")
-    print(f"\n🌐 Canvas URL : {FLOWISE_URL}/canvas/{flow_id}")
-    print(f"📡 API URL    : {FLOWISE_URL}/api/v1/prediction/{flow_id}")
+    print(f"\n✅ Flow Created!")
+    print(f"   ID   : {flow_id}")
+    print(f"   Type : CHATFLOW (3 nodes, 2 edges)")
+    print(f"\n🌐 Open now: {FLOWISE_URL}/canvas/{flow_id}")
+    print(f"📡 API URL : {FLOWISE_URL}/api/v1/prediction/{flow_id}")
 
     print("\n" + "─"*55)
-    print("⚠️  ONE MANUAL STEP REQUIRED IN FLOWISE UI:")
+    print("⚠️  ONE STEP IN FLOWISE UI (takes 20 seconds):")
     print("─"*55)
-    print("  1. Open Flowise → canvas above URL")
-    print("  2. Click the '⚡ ChatGroq' node (bottom of canvas)")
-    print("  3. Click 'Connect Credential' → Add New")
-    print("  4. Enter your Groq API key:")
-    print(f"     {GROQ_API_KEY[:8]}...{GROQ_API_KEY[-4:]}  (from your .env)")
-    print("  5. Save → all 5 LLM agents will use it automatically")
+    print()
+    print("  1. Open the canvas URL above")
+    print("  2. You will see 3 nodes:")
+    print("     [ChatGroq] ──→ [CODEFORGE Agent] ←── [Tavily Search]")
+    print()
+    print("  3. Click the [ChatGroq] node")
+    print("  4. In the right panel → 'Connect Credential' dropdown")
+    print("  5. Click '+ Add New Credential'")
+    print("  6. Name: Groq  |  API Key: your Groq key")
+    print("  7. Click Save")
+    print("  8. Click [Save] button (top right of canvas)")
+    print()
+    print("  That's it — the flow will be fully working!")
     print("─"*55)
-    print("\nAll 8 nodes created:")
-    print("  ▶ START → 🎯 ORCHESTRATOR → 📋 PLANNER → 💻 CODER")
-    print("  → 🔍 REVIEWER → ❓ CONDITION → ⚡ EXECUTOR / 🐛 DEBUGGER")
-    print("  → ✅ DONE\n")
+    print(f"\nTavily key for node config: {TAVILY_API_KEY[:12]}...")
+    print()
 
 
 if __name__ == "__main__":
