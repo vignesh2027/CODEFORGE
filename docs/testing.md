@@ -45,14 +45,13 @@ python3 tests/test_suite.py
 
 ```
 Total tests : 20
-Passed      : 19
-Failed      :  1  ← Groq TPM rate limit during heavy testing (not a bug)
-Pass rate   : 95%
+Passed      : 20
+Failed      :  0
+Pass rate   : 100%
 ```
 
-The one failure is a Groq API 429 (rate limit) that occurs when running
-5 full pipeline tests back-to-back. The LLM config includes `max_retries=3`
-with automatic backoff — wait a minute between heavy runs.
+All tests pass, including 5 full end-to-end pipeline runs. The `max_retries=3`
+config on ChatGroq handles transient Groq TPM rate limits automatically.
 
 ## Adding New Tests
 
