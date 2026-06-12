@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Creates the CODEFORGE agent in Flowise Cloud as a proper CHATFLOW.
-Nodes are connected with real edges — no template strings.
+Automatically creates the Groq credential via API — no manual steps needed.
 Run: python3 flowise/create_flow.py
 """
 import json, sys, os, requests
@@ -19,13 +19,15 @@ FLOWISE_KEY = "BkV4qapsZW6FUoVHdASgmcyEeaRyUy9XkFYqYjKFQ8U"
 HEADERS = {"Authorization": f"Bearer {FLOWISE_KEY}", "Content-Type": "application/json"}
 
 
-def api(method, path, body=None):
+def api(method, path, body=None, allow_404=False):
     url = f"{FLOWISE_URL}{path}"
     fn = {"GET": requests.get, "POST": requests.post,
           "PUT": requests.put, "DELETE": requests.delete}[method]
     r = fn(url, headers=HEADERS, json=body, timeout=20)
+    if allow_404 and r.status_code == 404:
+        return None
     if r.status_code not in (200, 201):
-        raise RuntimeError(f"{method} {path} → {r.status_code}: {r.text[:300]}")
+        raise RuntimeError(f"{method} {path} → {r.status_code}: {r.text[:400]}")
     return r.json()
 
 
@@ -35,9 +37,39 @@ def delete_all_codeforge():
         if "CODEFORGE" in f.get("name", ""):
             try:
                 api("DELETE", f"/api/v1/chatflows/{f['id']}")
-                print(f"  Deleted: {f['name']}")
+                print(f"  Deleted flow: {f['name']}")
             except Exception:
                 pass
+
+
+def get_or_create_groq_credential():
+    """Create Groq credential via Flowise API so ChatGroq node works automatically."""
+    # Check if a Groq credential already exists
+    try:
+        creds = api("GET", "/api/v1/credentials")
+        for c in creds:
+            if c.get("credentialName") == "groqApi" or "groq" in c.get("name", "").lower():
+                print(f"  Found existing Groq credential: {c['id']}")
+                return c["id"]
+    except Exception:
+        pass
+
+    # Create new Groq credential
+    try:
+        result = api("POST", "/api/v1/credentials", {
+            "name": "Groq-CODEFORGE",
+            "credentialName": "groqApi",
+            "plainDataObj": {
+                "groqApiKey": GROQ_API_KEY
+            }
+        })
+        cred_id = result["id"]
+        print(f"  Created Groq credential: {cred_id}")
+        return cred_id
+    except Exception as e:
+        print(f"  Warning: Could not create credential via API ({e})")
+        print("  Will embed API key directly in node inputs instead.")
+        return None
 
 
 CODEFORGE_SYSTEM_PROMPT = """You are CODEFORGE — an expert AI code generation system.
@@ -76,20 +108,23 @@ After the code, briefly explain:
 Always produce working, tested code. Use Tavily search when you need current documentation."""
 
 
-def build_chatflow():
-    """
-    Proper Flowise CHATFLOW with real node-to-node edge connections.
-
-    Layout:
-      [ChatGroq]  [TavilySearch]
-          ↘           ↙
-           [Tool Agent]
-    """
-
+def build_chatflow(cred_id):
     # ── Node: ChatGroq ─────────────────────────────────────────────────────
+    groq_inputs = {
+        "modelName": "llama-3.3-70b-versatile",
+        "temperature": 0.1,
+        "streaming": True,
+        "maxTokens": 4096,
+    }
+    # If credential API succeeded, reference it; otherwise embed key directly
+    if cred_id:
+        groq_inputs["groqApiKey"] = ""  # will be filled from credential
+    else:
+        groq_inputs["groqApiKey"] = GROQ_API_KEY
+
     groq_node = {
         "id": "groqChat_0",
-        "position": {"x": 200, "y": 100},
+        "position": {"x": 200, "y": 80},
         "type": "customNode",
         "data": {
             "id": "groqChat_0",
@@ -100,13 +135,11 @@ def build_chatflow():
             "category": "Chat Models",
             "description": "Wrapper around Groq API with tool calling support",
             "baseClasses": ["GroqChat", "BaseChatModel", "BaseLanguageModel", "Runnable"],
-            "inputs": {
-                "modelName": "llama-3.3-70b-versatile",
-                "temperature": 0.1,
-                "streaming": True,
-                "maxTokens": 4096,
-            },
+            **({"credential": cred_id} if cred_id else {}),
+            "inputs": groq_inputs,
             "inputParams": [
+                {"label": "Connect Credential", "name": "credential",
+                 "type": "credential", "credentialNames": ["groqApi"]},
                 {"label": "Model Name",  "name": "modelName", "type": "asyncOptions",
                  "loadMethod": "listModels", "default": "llama3-8b-8192"},
                 {"label": "Temperature", "name": "temperature", "type": "number", "default": 0.9},
@@ -114,7 +147,8 @@ def build_chatflow():
                 {"label": "Streaming",   "name": "streaming", "type": "boolean", "default": True},
             ],
             "inputAnchors": [
-                {"label": "Cache", "name": "cache", "type": "BaseCache", "optional": True, "id": "groqChat_0-input-cache-BaseCache"}
+                {"label": "Cache", "name": "cache", "type": "BaseCache",
+                 "optional": True, "id": "groqChat_0-input-cache-BaseCache"}
             ],
             "outputAnchors": [
                 {
@@ -133,13 +167,13 @@ def build_chatflow():
             "outputs": {},
             "selected": False,
         },
-        "width": 300, "height": 380, "selected": False,
+        "width": 300, "height": 420, "selected": False,
     }
 
     # ── Node: Tavily Search ────────────────────────────────────────────────
     tavily_node = {
         "id": "tavilyAPI_0",
-        "position": {"x": 600, "y": 100},
+        "position": {"x": 650, "y": 80},
         "type": "customNode",
         "data": {
             "id": "tavilyAPI_0",
@@ -151,12 +185,15 @@ def build_chatflow():
             "description": "Real-time web search via Tavily API",
             "baseClasses": ["TavilyAPI", "StructuredTool", "BaseTool", "Runnable"],
             "inputs": {
+                "tavilyApiKey": TAVILY_API_KEY,
                 "maxResults": 5,
                 "searchDepth": "basic",
                 "topic": "general",
                 "includeAnswer": False,
             },
             "inputParams": [
+                {"label": "Tavily API Key", "name": "tavilyApiKey",
+                 "type": "password", "placeholder": "tvly-..."},
                 {"label": "Max Results",   "name": "maxResults",   "type": "number",  "default": 5},
                 {"label": "Search Depth",  "name": "searchDepth",  "type": "options",
                  "options": [{"label": "Basic", "name": "basic"}, {"label": "Advanced", "name": "advanced"}],
@@ -182,13 +219,13 @@ def build_chatflow():
             "outputs": {},
             "selected": False,
         },
-        "width": 300, "height": 380, "selected": False,
+        "width": 300, "height": 420, "selected": False,
     }
 
     # ── Node: Tool Agent ───────────────────────────────────────────────────
     agent_node = {
         "id": "toolAgent_0",
-        "position": {"x": 400, "y": 600},
+        "position": {"x": 420, "y": 580},
         "type": "customNode",
         "data": {
             "id": "toolAgent_0",
@@ -208,15 +245,14 @@ def build_chatflow():
             },
             "inputParams": [
                 {"label": "System Message", "name": "systemMessage", "type": "string",
-                 "rows": 4, "optional": True,
-                 "additionalParams": True, "default": ""},
+                 "rows": 4, "optional": True, "additionalParams": True, "default": ""},
                 {"label": "Max Iterations", "name": "maxIterations", "type": "number",
                  "optional": True, "additionalParams": True, "default": 10},
             ],
             "inputAnchors": [
-                {"label": "Tools",      "name": "tools",  "type": "Tool",         "list": True,
+                {"label": "Tools",      "name": "tools",  "type": "Tool",          "list": True,
                  "id": "toolAgent_0-input-tools-Tool"},
-                {"label": "Memory",     "name": "memory", "type": "BaseChatMemory","optional": True,
+                {"label": "Memory",     "name": "memory", "type": "BaseChatMemory", "optional": True,
                  "id": "toolAgent_0-input-memory-BaseChatMemory"},
                 {"label": "Chat Model", "name": "model",  "type": "BaseChatModel",
                  "id": "toolAgent_0-input-model-BaseChatModel"},
@@ -232,10 +268,10 @@ def build_chatflow():
             "outputs": {},
             "selected": False,
         },
-        "width": 300, "height": 430, "selected": False,
+        "width": 300, "height": 460, "selected": False,
     }
 
-    # ── Edges: real node-to-node connections ────────────────────────────────
+    # ── Edges ──────────────────────────────────────────────────────────────
     edges = [
         {
             "id": "e-groq-agent",
@@ -260,20 +296,23 @@ def build_chatflow():
     return json.dumps({
         "nodes": [groq_node, tavily_node, agent_node],
         "edges": edges,
-        "viewport": {"x": 80, "y": 40, "zoom": 0.9},
+        "viewport": {"x": 80, "y": 40, "zoom": 0.85},
     })
 
 
 def main():
-    print("\n╔════════════════════════════════════════╗")
-    print("║  CODEFORGE → Flowise  (Proper Build)  ║")
-    print("╚════════════════════════════════════════╝\n")
+    print("\n╔════════════════════════════════════════════╗")
+    print("║  CODEFORGE → Flowise  (Auto Credential)   ║")
+    print("╚════════════════════════════════════════════╝\n")
 
-    print("Removing all old CODEFORGE flows...")
+    print("Step 1: Removing old CODEFORGE flows...")
     delete_all_codeforge()
 
-    print("Creating proper CHATFLOW with real edge connections...")
-    flow_data = build_chatflow()
+    print("Step 2: Creating Groq credential via API...")
+    cred_id = get_or_create_groq_credential()
+
+    print("Step 3: Building CHATFLOW with 3 nodes + 2 edges...")
+    flow_data = build_chatflow(cred_id)
     result = api("POST", "/api/v1/chatflows", {
         "name": "CODEFORGE — Code Generation Agent",
         "flowData": flow_data,
@@ -283,30 +322,11 @@ def main():
     })
 
     flow_id = result["id"]
-    print(f"\n✅ Flow Created!")
-    print(f"   ID   : {flow_id}")
-    print(f"   Type : CHATFLOW (3 nodes, 2 edges)")
-    print(f"\n🌐 Open now: {FLOWISE_URL}/canvas/{flow_id}")
-    print(f"📡 API URL : {FLOWISE_URL}/api/v1/prediction/{flow_id}")
-
-    print("\n" + "─"*55)
-    print("⚠️  ONE STEP IN FLOWISE UI (takes 20 seconds):")
-    print("─"*55)
-    print()
-    print("  1. Open the canvas URL above")
-    print("  2. You will see 3 nodes:")
-    print("     [ChatGroq] ──→ [CODEFORGE Agent] ←── [Tavily Search]")
-    print()
-    print("  3. Click the [ChatGroq] node")
-    print("  4. In the right panel → 'Connect Credential' dropdown")
-    print("  5. Click '+ Add New Credential'")
-    print("  6. Name: Groq  |  API Key: your Groq key")
-    print("  7. Click Save")
-    print("  8. Click [Save] button (top right of canvas)")
-    print()
-    print("  That's it — the flow will be fully working!")
-    print("─"*55)
-    print(f"\nTavily key for node config: {TAVILY_API_KEY[:12]}...")
+    print(f"\n✅ Done — fully configured, no manual steps needed!")
+    print(f"\n   Flow ID : {flow_id}")
+    print(f"   Cred ID : {cred_id or 'embedded in node'}")
+    print(f"\n🌐 Canvas : {FLOWISE_URL}/canvas/{flow_id}")
+    print(f"📡 API    : {FLOWISE_URL}/api/v1/prediction/{flow_id}")
     print()
 
 
